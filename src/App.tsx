@@ -1,25 +1,36 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
-import './App.css';
 
-// Protected pages
+// User Portal Pages
 import { Dashboard } from './pages/Dashboard';
 import { ProjectList } from './pages/ProjectList';
 import { ProjectDetails } from './pages/ProjectDetails';
+import { CalendarPage } from './pages/user/CalendarPage';
+import { TimelinePage } from './pages/user/TimelinePage';
+import { AnalyticsPage } from './pages/user/AnalyticsPage';
 import { Profile } from './pages/Profile';
 
-// Public auth pages
+// Admin Portal Pages
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { UserManagementPage } from './pages/admin/UserManagementPage';
+import { AdminManagementPage } from './pages/admin/AdminManagementPage';
+import { PlatformStatisticsPage } from './pages/admin/PlatformStatisticsPage';
+import { ActivityLogsPage } from './pages/admin/ActivityLogsPage';
+import { SystemSettingsPage } from './pages/admin/SystemSettingsPage';
+
+// Public Auth Pages
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ForgotPassword } from './pages/ForgotPassword';
-import { ResetPassword } from './pages/ResetPassword';
 
-// Layout
+
+// Layouts
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
+import { AdminLayout } from './components/layout/AdminLayout';
 
-/* ── Auth guard ─────────────────────────────────────── */
+/* ── Auth Guard ─────────────────────────────────────── */
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -38,58 +49,107 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
-/* ── Authenticated shell ────────────────────────────── */
-const AppLayout: React.FC = () => {
+/* ── User Guard (Blocks Admins from User Portal) ───────── */
+const RequireUserGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (user?.role === 'admin' || user?.role === 'super_admin') {
+    return <Navigate to="/admin" replace />;
+  }
+  return <>{children}</>;
+};
+
+/* ── Admin Guard (Blocks Standard Users from Admin Portal) ── */
+const RequireAdminGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (user?.role === 'user') {
+    return <Navigate to="/" replace />;
+  }
+  return <>{children}</>;
+};
+
+/* ── Super Admin Guard ───────────────────────────────────── */
+const RequireSuperAdminGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (user?.role !== 'super_admin') {
+    return <Navigate to="/admin" replace />;
+  }
+  return <>{children}</>;
+};
+
+/* ── User Portal Shell ──────────────────────────────── */
+const UserLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    // lg: sidebar (240px fixed) + flex-1 main column
     <div className="flex h-screen overflow-hidden bg-white">
       <Sidebar
         isMobileOpen={sidebarOpen}
         onCloseMobile={() => setSidebarOpen(false)}
       />
 
-      {/* Right column: navbar + scrollable content */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Navbar onToggleSidebar={() => setSidebarOpen(s => !s)} />
 
         <main className="flex-1 overflow-y-auto">
-          <Routes>
-            <Route path="/"              element={<Dashboard />} />
-            <Route path="/projects"      element={<ProjectList />} />
-            <Route path="/projects/:id"  element={<ProjectDetails />} />
-            <Route path="/profile"       element={<Profile />} />
-            {/* Catch-all → dashboard */}
-            <Route path="*"              element={<Navigate to="/" replace />} />
-          </Routes>
+          <Outlet />
         </main>
       </div>
     </div>
   );
 };
 
-/* ── Root ───────────────────────────────────────────── */
+/* ── Root Application Router ────────────────────────── */
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public */}
-          <Route path="/login"           element={<Login />} />
-          <Route path="/register"        element={<Register />} />
+          {/* Public Auth Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password"  element={<ResetPassword />} />
+          {/* <Route path="/reset-password" element={<ResetPassword />} /> */}
 
-          {/* Protected — everything else */}
+          {/* User Portal Protected Routes */}
           <Route
-            path="/*"
             element={
               <RequireAuth>
-                <AppLayout />
+                <RequireUserGuard>
+                  <UserLayout />
+                </RequireUserGuard>
               </RequireAuth>
             }
-          />
+          >
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/projects" element={<ProjectList />} />
+            <Route path="/projects/:id" element={<ProjectDetails />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/timeline" element={<TimelinePage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/profile" element={<Profile />} />
+          </Route>
+
+          {/* Admin Portal Protected Routes */}
+          <Route
+            path="/admin"
+            element={
+              <RequireAuth>
+                <RequireAdminGuard>
+                  <AdminLayout />
+                </RequireAdminGuard>
+              </RequireAuth>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<UserManagementPage />} />
+            <Route path="admins" element={<RequireSuperAdminGuard><AdminManagementPage /></RequireSuperAdminGuard>} />
+            <Route path="statistics" element={<PlatformStatisticsPage />} />
+            <Route path="activity-logs" element={<ActivityLogsPage />} />
+            <Route path="settings" element={<SystemSettingsPage />} />
+          </Route>
+
+          {/* Fallback Catch-All */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

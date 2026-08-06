@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiClient } from '../lib/apiClient';
 
-interface UserProfile {
+export interface UserProfile {
   id: string;
   email: string;
   full_name: string;
+  role: 'user' | 'admin' | 'super_admin';
+  status?: 'active' | 'inactive';
   avatar_url: string;
   timezone: string;
   created_at: string;
@@ -32,7 +34,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const stored = localStorage.getItem('tracker_auth_user');
         if (stored) {
-          setUser(JSON.parse(stored));
+          const parsed = JSON.parse(stored);
+          if (parsed.status === 'inactive') {
+            localStorage.removeItem('tracker_auth_user');
+            localStorage.removeItem('tracker_jwt');
+            setUser(null);
+          } else {
+            setUser(parsed);
+          }
         }
       } catch (err) {
         console.error('Failed reading user session', err);
