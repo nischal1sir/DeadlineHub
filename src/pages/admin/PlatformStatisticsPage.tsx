@@ -31,64 +31,64 @@ export const PlatformStatisticsPage: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
+        <div className="flex items-center gap-2 text-brand text-xs font-bold uppercase tracking-wider mb-1">
           <BarChart3 size={14} /> Analytics & System Metrics
         </div>
-        <h1 className="font-heading font-bold text-2xl text-white">Platform Statistics</h1>
-        <p className="text-xs text-slate-400 mt-1">
+        <h1 className="font-heading font-bold text-2xl text-slate-900">Platform Statistics</h1>
+        <p className="text-xs text-slate-500 mt-1">
           Comprehensive real-time analytics across all user accounts, projects, task completion rates, and platform activity.
         </p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Users', value: stats.totalUsers, sub: `${stats.newUsersThisMonth} new this month`, icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-          { label: 'Active Users', value: stats.activeUsers, sub: `${stats.inactiveUsers} inactive`, icon: UserCheck, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-          { label: 'Inactive Users', value: stats.inactiveUsers, sub: 'Suspended / Deactivated', icon: UserX, color: 'text-rose-400', bg: 'bg-rose-500/10' },
-          { label: 'New Users (Month)', value: stats.newUsersThisMonth, sub: 'Joined this month', icon: Sparkles, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+          { label: 'Total Users', value: stats.totalUsers, sub: `${stats.newUsersThisMonth} new this month`, icon: Users, color: 'text-brand', bg: 'bg-brand-light' },
+          { label: 'Active Users', value: stats.activeUsers, sub: `${stats.inactiveUsers} inactive`, icon: UserCheck, color: 'text-brand', bg: 'bg-brand-light' },
+          { label: 'Inactive Users', value: stats.inactiveUsers, sub: 'Suspended / Deactivated', icon: UserX, color: 'text-rose-600', bg: 'bg-rose-50' },
+          { label: 'New Users (Month)', value: stats.newUsersThisMonth, sub: 'Joined this month', icon: Sparkles, color: 'text-amber-600', bg: 'bg-amber-50' },
 
-          { label: 'Total Projects', value: stats.totalProjects, sub: `${stats.completedProjects} completed`, icon: FolderKanban, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-          { label: 'Completed Projects', value: stats.completedProjects, sub: `${projectCompletionRate}% rate`, icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-          { label: 'Pending Projects', value: stats.pendingProjects, sub: 'In progress', icon: Clock, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-          { label: 'Overdue Projects', value: stats.overdueProjects, sub: 'Past deadline', icon: AlertTriangle, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+          { label: 'Total Projects', value: stats.totalProjects, sub: `${stats.completedProjects} completed`, icon: FolderKanban, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Completed Projects', value: stats.completedProjects, sub: `${projectCompletionRate}% rate`, icon: TrendingUp, color: 'text-brand', bg: 'bg-brand-light' },
+          { label: 'Pending Projects', value: stats.pendingProjects, sub: 'In progress', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Overdue Projects', value: stats.overdueProjects, sub: 'Past deadline', icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50' },
         ].map(item => (
-          <div key={item.label} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+          <div key={item.label} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{item.label}</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{item.label}</span>
               <div className={`w-8 h-8 rounded-xl ${item.bg} ${item.color} flex items-center justify-center`}>
                 <item.icon size={16} />
               </div>
             </div>
-            <p className="text-3xl font-bold text-white">{item.value}</p>
+            <p className="text-3xl font-bold text-slate-900">{item.value}</p>
             <p className="text-[11px] text-slate-500">{item.sub}</p>
           </div>
         ))}
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-          <h2 className="font-bold text-white text-sm flex items-center gap-2">
-            <PieChart size={16} className="text-emerald-400" /> Project Completion Velocity
+        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
+          <h2 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+            <PieChart size={16} className="text-brand" /> Project Completion Velocity
           </h2>
-          <div className="flex items-center justify-between text-xs text-slate-300">
+          <div className="flex items-center justify-between text-xs text-slate-700">
             <span>Completed Projects ({stats.completedProjects})</span>
-            <span className="font-bold text-emerald-400">{projectCompletionRate}%</span>
+            <span className="font-bold text-brand">{projectCompletionRate}%</span>
           </div>
-          <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
-            <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${projectCompletionRate}%` }} />
+          <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden border border-slate-200">
+            <div className="bg-brand h-full rounded-full transition-all duration-500" style={{ width: `${projectCompletionRate}%` }} />
           </div>
           <p className="text-[11px] text-slate-500">{stats.pendingProjects} projects currently in progress across the platform.</p>
         </div>
 
-        <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
-          <h2 className="font-bold text-white text-sm flex items-center gap-2">
-            <CheckSquare size={16} className="text-purple-400" /> Task Completion Rate
+        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
+          <h2 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+            <CheckSquare size={16} className="text-purple-600" /> Task Completion Rate
           </h2>
-          <div className="flex items-center justify-between text-xs text-slate-300">
+          <div className="flex items-center justify-between text-xs text-slate-700">
             <span>Completed Tasks ({stats.completedTasks} / {stats.totalTasks})</span>
-            <span className="font-bold text-purple-400">{taskCompletionRate}%</span>
+            <span className="font-bold text-purple-600">{taskCompletionRate}%</span>
           </div>
-          <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-800">
+          <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden border border-slate-200">
             <div className="bg-purple-500 h-full rounded-full transition-all duration-500" style={{ width: `${taskCompletionRate}%` }} />
           </div>
           <p className="text-[11px] text-slate-500">Tasks assigned to platform users.</p>

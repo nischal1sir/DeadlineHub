@@ -95,56 +95,56 @@ export const AdminManagementPage: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-brand text-xs font-bold uppercase tracking-wider mb-1">
             <ShieldAlert size={14} /> Super Admin Privilege Console
           </div>
-          <h1 className="font-heading font-bold text-2xl text-white">Admin Management</h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <h1 className="font-heading font-bold text-2xl text-slate-900">Admin Management</h1>
+          <p className="text-xs text-slate-500 mt-1">
             Manually grant, edit, or revoke administrative privileges and create new Admin accounts.
           </p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-2 shadow-md cursor-pointer"
+          className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
         >
           <UserPlus size={15} /> Create Admin Account
         </button>
       </div>
 
       {msg && (
-        <div className="p-3.5 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs font-semibold flex items-center justify-between">
+        <div className="p-3.5 rounded-xl bg-brand-light border border-brand/30 text-brand text-xs font-semibold flex items-center justify-between">
           <span>{msg}</span>
-          <button onClick={() => setMsg(null)} className="text-slate-400 hover:text-white text-xs font-bold">Dismiss</button>
+          <button onClick={() => setMsg(null)} className="text-slate-500 hover:text-slate-900 text-xs font-bold">Dismiss</button>
         </div>
       )}
 
       {loading ? (
-        <div className="p-12 text-center text-slate-400 text-xs">Loading admin registry...</div>
+        <div className="p-12 text-center text-slate-500 text-xs">Loading admin registry...</div>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
           {admins.map(admin => (
-            <div key={admin.id} className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4">
+            <div key={admin.id} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <img
                     src={admin.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${admin.email}`}
                     alt=""
-                    className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 object-cover"
+                    className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 object-cover"
                   />
                   <div>
-                    <h3 className="font-bold text-white text-sm">{admin.full_name}</h3>
-                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <h3 className="font-bold text-slate-900 text-sm">{admin.full_name}</h3>
+                    <p className="text-xs text-slate-500 flex items-center gap-1">
                       <Mail size={11} /> {admin.email}
                     </p>
                   </div>
                 </div>
-                <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase ${admin.role === 'super_admin' ? 'bg-amber-950 text-amber-400 border border-amber-800' : 'bg-emerald-950 text-emerald-400 border border-emerald-800'}`}>
+                <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase ${admin.role === 'super_admin' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-brand-light text-brand border border-brand/20'}`}>
                   {admin.role.replace('_', ' ')}
                 </span>
               </div>
 
-              <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-                <span className="text-[11px] text-slate-500">
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">
                   Joined: {new Date(admin.created_at).toLocaleDateString()}
                 </span>
 
@@ -152,7 +152,7 @@ export const AdminManagementPage: React.FC = () => {
                   <button
                     onClick={() => handleToggleAdminRole(admin)}
                     disabled={actionLoading || admin.id === 'superadmin-uuid-0000'}
-                    className="px-2.5 py-1 rounded text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer disabled:opacity-50"
+                    className="px-2.5 py-1 rounded text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer disabled:opacity-50"
                   >
                     Set as {admin.role === 'super_admin' ? 'Admin' : 'Super Admin'}
                   </button>
@@ -160,7 +160,7 @@ export const AdminManagementPage: React.FC = () => {
                   <button
                     onClick={() => handleDeleteAdmin(admin)}
                     disabled={actionLoading || admin.id === 'superadmin-uuid-0000'}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition disabled:opacity-30"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition disabled:opacity-30"
                     title={admin.id === 'superadmin-uuid-0000' ? 'Primary Super Admin protected from deletion' : 'Delete Admin'}
                   >
                     <Trash2 size={15} />

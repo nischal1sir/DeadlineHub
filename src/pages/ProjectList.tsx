@@ -138,14 +138,14 @@ export const ProjectList: React.FC = () => {
           <Button onClick={handleCreate} isLoading={btnLoading}>Create Project</Button>
         </>}
       >
-        <form onSubmit={handleCreate}>
-          {formError && <div className="mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm">{formError}</div>}
+        <form onSubmit={handleCreate} className="space-y-4 pt-1">
+          {formError && <div className="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm">{formError}</div>}
           <Input type="text" label="Project Name" placeholder="e.g. Website Overhaul"
             value={newName} onChange={e => setNewName(e.target.value)} required autoFocus />
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Description (Optional)</label>
             <textarea
-              className="w-full rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400 bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand/30 transition resize-none"
+              className="w-full rounded-xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400 bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition resize-none"
               rows={3} placeholder="Describe the scope or objectives..."
               value={newDesc} onChange={e => setNewDesc(e.target.value)}
             />

@@ -1,107 +1,148 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Input } from '../components/ui/Input';
-import { Button } from '../components/ui/Button';
-import { User, Lock } from 'lucide-react';
+import { User, Lock, Mail, Clock, Shield } from 'lucide-react';
 
 export const Profile: React.FC = () => {
-  const { user, updateProfile, resetPassword } = useAuth();
-  const [name, setName] = useState(user?.full_name || '');
-  const [timezone, setTimezone] = useState(user?.timezone || 'UTC');
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [profileMsg, setProfileMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [pwLoading, setPwLoading] = useState(false);
-  const [pwMsg, setPwMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const { user } = useAuth();
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) { setProfileMsg({ type: 'error', text: 'Full name cannot be blank.' }); return; }
-    setProfileLoading(true); setProfileMsg(null);
-    try {
-      await updateProfile(name.trim(), timezone);
-      setProfileMsg({ type: 'success', text: 'Profile updated successfully.' });
-    } catch (err: any) { setProfileMsg({ type: 'error', text: err.message || 'Failed to update.' }); }
-    finally { setProfileLoading(false); }
-  };
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3 text-slate-400">
+          <svg className="animate-spin h-10 w-10 text-brand" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          </svg>
+          <span className="text-sm text-slate-500">Loading profile...</span>
+        </div>
+      </div>
+    );
+  }
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!password || !confirmPassword) { setPwMsg({ type: 'error', text: 'Please fill in all fields.' }); return; }
-    if (password !== confirmPassword) { setPwMsg({ type: 'error', text: 'Passwords do not match.' }); return; }
-    if (password.length < 6) { setPwMsg({ type: 'error', text: 'Minimum 6 characters required.' }); return; }
-    setPwLoading(true); setPwMsg(null);
-    try {
-      await resetPassword(password);
-      setPwMsg({ type: 'success', text: 'Password updated successfully.' });
-      setPassword(''); setConfirmPassword('');
-    } catch (err: any) { setPwMsg({ type: 'error', text: err.message || 'Failed to update password.' }); }
-    finally { setPwLoading(false); }
-  };
+  // Get initials from full name
+  const initials = user.full_name
+    ? user.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
+    : 'U';
 
-  const Alert = ({ msg }: { msg: { type: 'error' | 'success'; text: string } }) => (
-    <div className={[
-      'mb-4 px-4 py-3 rounded-xl text-sm border',
-      msg.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-600' : 'bg-brand-light border-brand/30 text-brand font-medium',
-    ].join(' ')}>{msg.text}</div>
-  );
+  // Split name into first and last
+  const nameParts = user.full_name?.split(' ') || [];
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
 
   return (
     <div className="p-6 max-w-4xl mx-auto animate-fade-in">
-      <h1 className="font-heading font-bold text-2xl text-slate-900 mb-1">Profile Settings</h1>
-      <p className="text-sm text-slate-500 mb-8">Manage your account preferences and security</p>
+      <div className="mb-6">
+        <h1 className="font-heading font-bold text-2xl text-slate-900">My Profile</h1>
+        <p className="text-sm text-slate-500 mt-1">View your account information</p>
+      </div>
+
+      {/* Profile Header Card */}
+      <div className="rounded-2xl bg-gradient-to-r from-brand-light via-white to-surface border border-brand/20 p-6 mb-6 flex items-center gap-5 shadow-xs">
+        <div className="w-16 h-16 rounded-2xl bg-brand flex items-center justify-center text-white text-2xl font-bold shrink-0 shadow-md">
+          {user.avatar_url ? (
+            <img src={user.avatar_url} alt={user.full_name} className="w-full h-full rounded-2xl object-cover" />
+          ) : (
+            initials
+          )}
+        </div>
+        <div>
+          <h2 className="font-heading font-bold text-xl text-slate-900">{user.full_name}</h2>
+          <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5">
+            <Mail size={13} className="text-brand" />
+            {user.email}
+          </p>
+          <span className={`inline-flex items-center gap-1 mt-1.5 px-2.5 rounded-full text-[11px] font-bold uppercase ${
+            user.role === 'super_admin'
+              ? 'bg-amber-50 text-amber-800 border border-amber-200'
+              : user.role === 'admin'
+              ? 'bg-brand-light text-brand border border-brand/20'
+              : 'bg-slate-100 text-slate-600 border border-slate-200'
+          }`}>
+            <User size={13} />
+            {user.role.replace('_', ' ')}
+          </span>
+        </div>
+      </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Personal Details */}
-        <div className="glass p-6">
-          <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-5">
+        {/* Personal Details — Read Only */}
+        <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-xs">
+          <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-5 text-sm border-b border-slate-100 pb-3">
             <User size={16} className="text-brand" /> Personal Details
           </h2>
-          {profileMsg && <Alert msg={profileMsg} />}
-          <form onSubmit={handleUpdateProfile}>
-            <Input type="text" label="Full Name" value={name} onChange={e => setName(e.target.value)} required />
-            <div className="flex flex-col gap-1.5 mb-4">
-              <label className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Timezone</label>
-              <select
-                className="w-full rounded-xl px-4 py-3 text-sm text-slate-800 bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand/30 transition"
-                value={timezone} onChange={e => setTimezone(e.target.value)}
-              >
-                <option value="UTC">UTC — Coordinated Universal Time</option>
-                <option value="GMT">GMT — Greenwich Mean Time</option>
-                <option value="EST">EST — Eastern Standard Time</option>
-                <option value="PST">PST — Pacific Standard Time</option>
-                <option value="NPT">NPT — Nepal Standard Time</option>
-              </select>
+
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">First Name</label>
+                <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
+                  {firstName || '—'}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Last Name</label>
+                <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
+                  {lastName || '—'}
+                </div>
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5 mb-4">
-              <label className="text-xs font-semibold tracking-wide text-slate-600 uppercase">Email (Read‑only)</label>
-              <input
-                className="w-full rounded-xl px-4 py-3 text-sm text-slate-500 bg-slate-50 border border-slate-200 cursor-not-allowed opacity-75"
-                value={user?.email || ''} disabled
-              />
-              <span className="text-xs text-slate-500">Email changes require Supabase auth confirmation.</span>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <Mail size={10} /> Email Address
+              </label>
+              <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
+                {user.email}
+              </div>
             </div>
-            <Button type="submit" isLoading={profileLoading}>Save Details</Button>
-          </form>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <Clock size={10} /> Timezone
+              </label>
+              <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
+                UTC — Coordinated Universal Time
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Member Since</label>
+              <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
+                {new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-4 text-[11px] text-slate-400 flex items-center gap-1.5">
+            <Shield size={11} className="text-brand" />
+            Profile changes must be requested through an administrator.
+          </p>
         </div>
 
-        {/* Security */}
-        <div className="glass p-6">
-          <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-5">
-            <Lock size={16} className="text-amber-700" /> Security & Password
+        {/* Password — Info Panel */}
+        <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-xs">
+          <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-5 text-sm border-b border-slate-100 pb-3">
+            <Lock size={16} className="text-amber-600" /> Security & Password
           </h2>
-          {pwMsg && <Alert msg={pwMsg} />}
-          <form onSubmit={handleChangePassword}>
-            <Input type="password" label="New Password" placeholder="••••••••"
-              value={password} onChange={e => setPassword(e.target.value)} required helperText="Minimum 6 characters." />
-            <Input type="password" label="Confirm Password" placeholder="••••••••"
-              value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
-            <Button type="submit" variant="outline" isLoading={pwLoading}
-              className="border-amber-700/40 text-amber-900 hover:bg-cream">
-              Update Password
-            </Button>
-          </form>
+
+          <div className="flex flex-col items-center justify-center py-8 px-4 rounded-2xl bg-amber-50 border border-amber-200 text-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+              <Lock size={22} className="text-amber-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-amber-900 text-sm">Password Change Restricted</p>
+              <p className="text-amber-700 text-xs mt-1.5 leading-relaxed max-w-xs">
+                To change your password, please contact an <strong>Administrator</strong> or <strong>Super Admin</strong> to update your password on your behalf.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 p-3.5 rounded-xl bg-brand-light border border-brand/20">
+            <p className="text-[11px] text-brand font-medium flex items-start gap-2">
+              <Shield size={12} className="shrink-0 mt-0.5" />
+              Your account security is managed centrally. Administrators can reset your credentials securely through the admin panel.
+            </p>
+          </div>
         </div>
       </div>
     </div>

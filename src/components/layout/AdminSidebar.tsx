@@ -2,10 +2,10 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, UserCog, BarChart3,
-  History, Settings, ShieldCheck, ShieldAlert
+  History, Settings, ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-
+import logoImg from "../../assets/logo.png"
 interface AdminSidebarProps {
   isMobileOpen: boolean;
   onCloseMobile: () => void;
@@ -59,7 +59,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isMobileOpen, onClos
         <div className="flex items-center justify-between px-5 h-16 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-brand-light border border-brand/20 flex items-center justify-center text-brand">
-              <ShieldCheck size={20} />
+              <img src={logoImg} alt="Logo" className="w-8 h-8" />
             </div>
             <div>
               <span className="font-heading font-bold text-base text-slate-900 tracking-wide block leading-tight">
@@ -118,7 +118,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isMobileOpen, onClos
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-bold text-slate-900 truncate">{user.full_name}</span>
                 <span className="text-[10px] text-brand font-semibold truncate uppercase flex items-center gap-1">
-                  {isSuperAdmin ? <ShieldAlert size={10} /> : <ShieldCheck size={10} />}
+                  {isSuperAdmin ? <ShieldAlert size={10} /> : <img src={logoImg} alt="Logo" className="w-4 h-4" />}
                   {user.role.replace('_', ' ')}
                 </span>
               </div>

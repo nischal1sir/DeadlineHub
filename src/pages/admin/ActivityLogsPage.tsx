@@ -34,17 +34,17 @@ export const ActivityLogsPage: React.FC = () => {
   const getCategoryBadge = (cat: ActivityLog['category']) => {
     switch (cat) {
       case 'admin':
-        return 'bg-amber-950 text-amber-400 border-amber-800';
+        return 'bg-amber-50 text-amber-800 border-amber-200';
       case 'auth':
-        return 'bg-emerald-950 text-emerald-400 border-emerald-800';
+        return 'bg-brand-light text-brand border-brand/20';
       case 'project':
-        return 'bg-blue-950 text-blue-400 border-blue-800';
+        return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'task':
-        return 'bg-purple-950 text-purple-400 border-purple-800';
+        return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'user':
-        return 'bg-rose-950 text-rose-400 border-rose-800';
+        return 'bg-rose-50 text-rose-700 border-rose-200';
       default:
-        return 'bg-slate-800 text-slate-300 border-slate-700';
+        return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
 
@@ -52,31 +52,31 @@ export const ActivityLogsPage: React.FC = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-brand text-xs font-bold uppercase tracking-wider mb-1">
             <History size={14} /> Audit Trail & System Events
           </div>
-          <h1 className="font-heading font-bold text-2xl text-white">System Activity Logs</h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <h1 className="font-heading font-bold text-2xl text-slate-900">System Activity Logs</h1>
+          <p className="text-xs text-slate-500 mt-1">
             Real-time activity log tracking registrations, logins, project changes, account deletions, and administrative actions.
           </p>
         </div>
         <button
           onClick={fetchLogs}
-          className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 text-slate-200 text-xs font-bold transition flex items-center gap-2 cursor-pointer"
+          className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-brand/40 text-slate-700 text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh Logs
         </button>
       </div>
 
-      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="relative w-full md:w-80">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search activity logs..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-950 border border-slate-800 text-slate-200 focus:outline-none focus:border-emerald-500"
+            className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-800 focus:outline-none focus:border-brand"
           />
         </div>
 
@@ -85,7 +85,7 @@ export const ActivityLogsPage: React.FC = () => {
             <button
               key={cat}
               onClick={() => setCategoryFilter(cat)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition cursor-pointer ${categoryFilter === cat ? 'bg-emerald-600 text-white' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'}`}
+              className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition cursor-pointer ${categoryFilter === cat ? 'bg-brand text-white' : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200'}`}
             >
               {cat}
             </button>
@@ -93,15 +93,15 @@ export const ActivityLogsPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+      <div className="rounded-2xl bg-white border border-slate-200 shadow-xs overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 text-xs">Loading audit logs...</div>
+          <div className="p-12 text-center text-slate-500 text-xs">Loading audit logs...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-xs">No activity logs recorded matching your search.</div>
+          <div className="p-12 text-center text-slate-400 text-xs">No activity logs recorded matching your search.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-slate-950 border-b border-slate-800 text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] text-slate-500 uppercase font-bold tracking-wider">
                 <tr>
                   <th className="py-3.5 px-5">Timestamp</th>
                   <th className="py-3.5 px-4">User</th>
@@ -110,16 +110,16 @@ export const ActivityLogsPage: React.FC = () => {
                   <th className="py-3.5 px-5">Details</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-slate-100">
                 {filtered.map(log => (
-                  <tr key={log.id} className="hover:bg-slate-800/40 transition">
+                  <tr key={log.id} className="hover:bg-slate-50 transition">
                     <td className="py-3.5 px-5 text-slate-400 font-mono text-[11px] whitespace-nowrap">
                       {new Date(log.created_at).toLocaleString()}
                     </td>
                     <td className="py-3.5 px-4">
                       <div>
-                        <p className="font-bold text-slate-200">{log.user_name || 'System'}</p>
-                        <p className="text-[10px] text-slate-500">{log.user_email || '—'}</p>
+                        <p className="font-bold text-slate-900">{log.user_name || 'System'}</p>
+                        <p className="text-[10px] text-slate-400">{log.user_email || '—'}</p>
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
@@ -127,10 +127,10 @@ export const ActivityLogsPage: React.FC = () => {
                         {log.category}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-[11px] font-semibold text-emerald-400">
+                    <td className="py-3.5 px-4 font-mono text-[11px] font-semibold text-brand">
                       {log.action}
                     </td>
-                    <td className="py-3.5 px-5 text-slate-300 max-w-md truncate">
+                    <td className="py-3.5 px-5 text-slate-700 max-w-md truncate">
                       {log.details}
                     </td>
                   </tr>
