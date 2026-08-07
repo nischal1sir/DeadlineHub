@@ -23,7 +23,7 @@
   --font-heading: "Outfit", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* ─── Base ──────────────────────────────────────────────── */
+/* ─── Base */
 *, *::before, *::after { box-sizing: border-box; }
 
 html { font-family: var(--font-sans); }
@@ -33,12 +33,12 @@ body {
   min-height: 100vh;
 }
 
-/* ─── Scrollbar ─────────────────────────────────────────── */
+/* ─── Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { @apply rounded-full bg-slate-300; }
 
-/* ─── Custom Animations ─────────────────────────────────── */
+/* ─── Custom Animations */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -51,7 +51,7 @@ body {
 .animate-fade-in  { animation: fade-in  0.25s ease forwards; }
 .animate-pop-in   { animation: pop-in   0.20s ease forwards; }
 
-/* ─── Card Utility ─────────────────────────────────────── */
+/* ─── Card Utility */
 .glass {
   @apply rounded-2xl border border-slate-200/80 bg-white shadow-xs;
 }

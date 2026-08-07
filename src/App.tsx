@@ -30,7 +30,7 @@ import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
 import { AdminLayout } from './components/layout/AdminLayout';
 
-/* ── Auth Guard ─────────────────────────────────────── */
+/* ── Auth Guard ──*/
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -67,7 +67,7 @@ const RequireAdminGuard: React.FC<{ children: React.ReactNode }> = ({ children }
   return <>{children}</>;
 };
 
-/* ── Super Admin Guard ───────────────────────────────────── */
+/* ── Super Admin Guard */
 const RequireSuperAdminGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   if (user?.role !== 'super_admin') {
@@ -76,7 +76,7 @@ const RequireSuperAdminGuard: React.FC<{ children: React.ReactNode }> = ({ child
   return <>{children}</>;
 };
 
-/* ── User Portal Shell ──────────────────────────────── */
+/* ── User Portal Shell  */
 const UserLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -98,7 +98,7 @@ const UserLayout: React.FC = () => {
   );
 };
 
-/* ── Root Application Router ────────────────────────── */
+/* ── Root Application Router */
 export default function App() {
   return (
     <AuthProvider>
