@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ShieldCheck, Zap, Layers, BarChart3 } from 'lucide-react';
+import { ShieldCheck, Zap, Layers, BarChart3, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -11,6 +11,7 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -268,7 +269,7 @@ export const Login: React.FC = () => {
             Manage projects <span className="text-[#F9EAD7]">with intelligence.</span>
           </h1>
           <p
-            className="mt-4 text-slate-400 text-base leading-relaxed max-w-md anim-fade-up"
+            className="mt-4 text-black text-base leading-relaxed max-w-md anim-fade-up"
             style={{ animationDelay: '0.35s' }}
           >
             Track tasks, organize modules, collaborate with your team, and monitor system metrics — all in one place.
@@ -286,7 +287,7 @@ export const Login: React.FC = () => {
                   <item.icon size={16} className="text-[#F9EAD7]" />
                 </div>
                 <p className="text-sm font-semibold text-white">{item.label}</p>
-                <p className="text-xs text-slate-400">{item.sub}</p>
+                <p className="text-xs text-black">{item.sub}</p>
               </div>
             ))}
           </div>
@@ -340,9 +341,9 @@ export const Login: React.FC = () => {
               />
             </div>
             <div>
-              <div className="transition-transform duration-200 focus-within:scale-[1.01]">
+              <div className="relative transition-transform duration-200 focus-within:scale-[1.01]">
                 <Input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   label="Password"
                   placeholder="••••••••"
                   value={password}
@@ -350,6 +351,15 @@ export const Login: React.FC = () => {
                   required
                   autoComplete="current-password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  tabIndex={-1}
+                  className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600 transition"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <Eye size={17} /> : <EyeOff size={17} />}
+                </button>
               </div>
               <div className="flex justify-end mt-1">
                 <Link to="/forgot-password" className="text-xs text-slate-500 hover:text-slate-800 hover:underline transition">

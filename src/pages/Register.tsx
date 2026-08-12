@@ -110,7 +110,7 @@ export const Register: React.FC = () => {
               className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600 transition"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              {showPassword ? <Eye size={17} /> : <EyeOff size={17} />}
             </button>
           </div>
           <div className="relative">
@@ -130,7 +130,7 @@ export const Register: React.FC = () => {
               className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600 transition"
               aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
             >
-              {showConfirmPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              {showConfirmPassword ? <Eye size={17} /> : <EyeOff size={17} />}
             </button>
           </div>
           <Button type="submit" className="w-full !mt-2" isLoading={loading}>

@@ -19,7 +19,7 @@ const MetricCard = ({ icon: Icon, value, label, iconBg }: { icon: any; value: st
   </div>
 );
 
-export const Dashboard: React.FC = () => {
+export const UserDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [projectsCount, setProjectsCount] = useState(0);
   const [tasksStats, setTasksStats] = useState({ total: 0, completed: 0, active: 0 });

@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { AuthProvider, useAuth } from './hooks/useAuth';
 
 // User Portal Pages
-import { Dashboard } from './pages/Dashboard';
+import { UserDashboard } from './pages/UserDashboard';
 import { ProjectList } from './pages/ProjectList';
 import { ProjectDetails } from './pages/ProjectDetails';
 import { CalendarPage } from './pages/user/CalendarPage';
@@ -121,7 +121,7 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<UserDashboard />} />
             <Route path="/projects" element={<ProjectList />} />
             <Route path="/projects/:id" element={<ProjectDetails />} />
             <Route path="/calendar" element={<CalendarPage />} />
