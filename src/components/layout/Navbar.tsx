@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { apiClient } from '../../lib/apiClient';
 import { Badge } from '../ui/Badge';
 import type { DeadlineNotification } from '../dashboard/ProjectDeadlineNotificationPanel';
+import { getDaysRemaining } from '../../lib/dateUtils';
 
 interface NavbarProps {
   onToggleSidebar: () => void;
@@ -24,106 +25,28 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const loadNotifications = async () => {
+  const loadNotificationState = async () => {
     if (!user) return;
     try {
-      const projs = await apiClient.getProjects();
-      const list: DeadlineNotification[] = [];
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
+      const { deadlines, readIds: r, clearedIds: c } = await apiClient.getNotifications();
+      const processed: DeadlineNotification[] = deadlines
+        .map(d => ({
+          ...d,
+          daysRemaining: getDaysRemaining(d.dueDate)
+        }))
+        .filter(d => d.daysRemaining <= 7);
 
-      for (const p of projs) {
-        // Project deadline
-        if (p.status !== 'completed' && (p.due_date || p.deadline)) {
-          const pDateStr = p.due_date || p.deadline;
-          const pDate = new Date(pDateStr);
-          pDate.setHours(0, 0, 0, 0);
-          const diffDays = Math.ceil((pDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDays <= 7) {
-            list.push({
-              id: `proj-${p.id}`,
-              type: 'project',
-              title: p.name,
-              subtitle: p.description || 'Project deadline approaching',
-              projectName: p.name,
-              projectId: p.id,
-              dueDate: pDateStr,
-              daysRemaining: diffDays
-            });
-          }
-        }
-
-        // Tasks & Subtasks
-        const tList = await apiClient.getTasksForProject(p.id);
-        for (const task of tList) {
-          if (task.status !== 'done' && task.due_date) {
-            const tDate = new Date(task.due_date);
-            tDate.setHours(0, 0, 0, 0);
-            const diffDays = Math.ceil((tDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            if (diffDays <= 7) {
-              list.push({
-                id: `task-${task.id}`,
-                type: 'task',
-                title: task.title,
-                subtitle: `Task in project "${p.name}"`,
-                projectName: p.name,
-                projectId: p.id,
-                dueDate: task.due_date,
-                daysRemaining: diffDays,
-                priority: task.priority
-              });
-            }
-          }
-
-          if (task.subtasks && Array.isArray(task.subtasks)) {
-            for (const sub of task.subtasks) {
-              if (!sub.is_completed) {
-                const subDueDate = sub.due_date || task.due_date;
-                if (subDueDate) {
-                  const sDate = new Date(subDueDate);
-                  sDate.setHours(0, 0, 0, 0);
-                  const diffDays = Math.ceil((sDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                  if (diffDays <= 7) {
-                    list.push({
-                      id: `subtask-${sub.id}`,
-                      type: 'subtask',
-                      title: sub.title,
-                      subtitle: `Subtask under "${task.title}"`,
-                      projectName: p.name,
-                      projectId: p.id,
-                      dueDate: subDueDate,
-                      daysRemaining: diffDays,
-                      priority: task.priority
-                    });
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      list.sort((a, b) => a.daysRemaining - b.daysRemaining);
-      setNotifications(list);
+      processed.sort((a, b) => a.daysRemaining - b.daysRemaining);
+      setNotifications(processed);
+      setReadIds(r);
+      setClearedIds(c);
     } catch (err) {
       console.error('Failed loading notifications in Navbar', err);
     }
   };
 
-  // Load server-side read/cleared state
-  const loadReads = async () => {
-    try {
-      const { readIds: r, clearedIds: c } = await apiClient.getNotificationReads();
-      setReadIds(r);
-      setClearedIds(c);
-    } catch {
-      // fallback: stay with empty state
-    }
-  };
-
   useEffect(() => {
-    loadNotifications();
-    loadReads();
+    loadNotificationState();
   }, [user]);
 
   useEffect(() => {
@@ -254,7 +177,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           <button
             onClick={() => {
               setNotifOpen(!notifOpen);
-              if (!notifOpen) loadNotifications();
+              if (!notifOpen) loadNotificationState();
             }}
             title={unreadCount > 0 ? `${unreadCount} deadline notification(s)` : 'Notifications'}
             className={`relative p-2 rounded-xl transition cursor-pointer ${
@@ -362,18 +285,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                         ? 'All 7-day notifications have been cleared.'
                         : 'No project or subtask deadlines due within the next 7 days.'}
                     </p>
-                    {clearedIds.length > 0 && (
-                      <button
-                        onClick={async () => {
-                          setClearedIds([]);
-                          setReadIds([]);
-                          await apiClient.restoreNotifications().catch(console.error);
-                        }}
-                        className="mt-2 text-[11px] font-semibold text-brand hover:underline cursor-pointer"
-                      >
-                        Restore cleared notifications
-                      </button>
-                    )}
                   </div>
                 ) : (
                   filteredNotifications.map(n => {

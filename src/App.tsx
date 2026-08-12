@@ -10,6 +10,7 @@ import { CalendarPage } from './pages/user/CalendarPage';
 import { TimelinePage } from './pages/user/TimelinePage';
 import { AnalyticsPage } from './pages/user/AnalyticsPage';
 import { Profile } from './pages/Profile';
+import { PendingTasksPage } from './pages/PendingTasksPage';
 
 // Admin Portal Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -127,6 +128,7 @@ export default function App() {
             <Route path="/timeline" element={<TimelinePage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/pending-tasks" element={<PendingTasksPage />} />
           </Route>
 
           {/* Admin Portal Protected Routes */}
