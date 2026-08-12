@@ -39,10 +39,10 @@ export const Login: React.FC = () => {
         if (u.role === 'admin' || u.role === 'super_admin') {
           navigate('/admin');
         } else {
-          navigate('/');
+          navigate('/dashboard');
         }
       } else {
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (err: any) {
       setError(err.message || 'Incorrect email or password.');

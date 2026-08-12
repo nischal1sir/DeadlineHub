@@ -24,6 +24,7 @@ import { SystemSettingsPage } from './pages/admin/SystemSettingsPage';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ForgotPassword } from './pages/ForgotPassword';
+import { PublicDashboard } from './components/layout/PublicDash';
 
 
 // Layouts
@@ -63,7 +64,7 @@ const RequireUserGuard: React.FC<{ children: React.ReactNode }> = ({ children })
 const RequireAdminGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   if (user?.role === 'user') {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;
 };
@@ -105,7 +106,8 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public Auth Routes */}
+          {/* Public Landing + Auth Routes */}
+          <Route path="/" element={<PublicDashboard />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -121,7 +123,7 @@ export default function App() {
               </RequireAuth>
             }
           >
-            <Route path="/" element={<UserDashboard />} />
+            <Route path="/dashboard" element={<UserDashboard />} />
             <Route path="/projects" element={<ProjectList />} />
             <Route path="/projects/:id" element={<ProjectDetails />} />
             <Route path="/calendar" element={<CalendarPage />} />

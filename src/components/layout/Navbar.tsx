@@ -4,7 +4,7 @@ import { Bell, BellOff, User, LogOut, Menu, X, CheckCircle2, Check, ShieldAlert,
 import { useAuth } from '../../hooks/useAuth';
 import { apiClient } from '../../lib/apiClient';
 import { Badge } from '../ui/Badge';
-import type { DeadlineNotification } from '../dashboard/ProjectDeadlineNotificationPanel';
+import type { DeadlineNotification } from '../../pages/ProjectDeadlineNotificationPanel';
 import { getDaysRemaining } from '../../lib/dateUtils';
 
 interface NavbarProps {

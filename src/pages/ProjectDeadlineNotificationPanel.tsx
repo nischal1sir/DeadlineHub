@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Calendar, Clock, X, CheckCircle2, ShieldAlert, ChevronRight, Layers, ListTodo } from 'lucide-react';
-import { Badge } from '../ui/Badge';
+import { Badge } from '../components/ui/Badge';
 
 export interface DeadlineNotification {
   id: string;

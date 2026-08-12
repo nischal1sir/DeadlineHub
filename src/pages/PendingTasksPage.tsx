@@ -108,7 +108,7 @@ export const PendingTasksPage: React.FC = () => {
       {/* Back */}
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2 text-sm text-slate-500 hover:text-brand font-medium transition-colors group"
         >
           <span className="w-8 h-8 rounded-xl border border-slate-200 bg-white flex items-center justify-center group-hover:border-brand/40 group-hover:bg-brand-light transition-all shadow-xs">

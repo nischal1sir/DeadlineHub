@@ -16,7 +16,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
   const { user } = useAuth();
 
   const userNavItems = [
-    { to: '/', end: true, icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/dashboard', end: true, icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/projects', end: false, icon: FolderKanban, label: 'Projects' },
     { to: '/calendar', end: false, icon: Calendar, label: 'Calendar' },
     { to: '/timeline', end: false, icon: GanttChartSquare, label: 'Timeline / Gantt' },
