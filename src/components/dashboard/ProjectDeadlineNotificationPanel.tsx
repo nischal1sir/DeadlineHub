@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Calendar, Clock, X, CheckCircle2, ShieldAlert, ChevronRight, Layers, ListTodo } from 'lucide-react';
+import { Bell, Calendar, Clock, X, CheckCircle2, ShieldAlert, ChevronRight, Layers, ListTodo, Check, CheckCheck } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 
 export interface DeadlineNotification {
@@ -22,6 +22,7 @@ interface NotificationPanelProps {
 }
 
 const STORAGE_KEY = 'deadlinehub_cleared_notifications';
+const READ_STORAGE_KEY = 'deadlinehub_read_notifications';
 
 export const ProjectDeadlineNotificationPanel: React.FC<NotificationPanelProps> = ({
   notifications,
@@ -38,6 +39,15 @@ export const ProjectDeadlineNotificationPanel: React.FC<NotificationPanelProps> 
     }
   });
 
+  const [readIds, setReadIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem(READ_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [activeTab, setActiveTab] = useState<'all' | 'project' | 'subtask'>('all');
 
   useEffect(() => {
@@ -48,8 +58,17 @@ export const ProjectDeadlineNotificationPanel: React.FC<NotificationPanelProps> 
     }
   }, [clearedIds]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(readIds));
+    } catch (e) {
+      console.error('Failed to save read notifications to localStorage', e);
+    }
+  }, [readIds]);
+
   // Filter out notifications cleared by user
   const visibleNotifications = notifications.filter(n => !clearedIds.includes(n.id));
+  const unreadCount = visibleNotifications.filter(n => !readIds.includes(n.id)).length;
 
   // Tab filtering
   const filteredNotifications = visibleNotifications.filter(n => {
@@ -57,6 +76,17 @@ export const ProjectDeadlineNotificationPanel: React.FC<NotificationPanelProps> 
     if (activeTab === 'subtask') return n.type === 'subtask' || n.type === 'task';
     return true;
   });
+
+  const toggleRead = (id: string) => {
+    setReadIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const markAllAsRead = () => {
+    const visibleUnreadIds = filteredNotifications.map(n => n.id);
+    setReadIds(prev => Array.from(new Set([...prev, ...visibleUnreadIds])));
+  };
 
   const clearSingleNotification = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -68,7 +98,10 @@ export const ProjectDeadlineNotificationPanel: React.FC<NotificationPanelProps> 
     setClearedIds(prev => Array.from(new Set([...prev, ...idsToClear])));
   };
 
-  const handleCardClick = (projectId: string) => {
+  const handleCardClick = (projectId: string, notificationId: string) => {
+    if (!readIds.includes(notificationId)) {
+      setReadIds(prev => [...prev, notificationId]);
+    }
     if (onNotificationClick) {
       onNotificationClick(projectId);
     } else {
@@ -124,9 +157,9 @@ export const ProjectDeadlineNotificationPanel: React.FC<NotificationPanelProps> 
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-heading font-bold text-slate-900 text-base">7-Day Deadline Notifications</h3>
-              {visibleNotifications.length > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-brand text-white shadow-2xs">
-                  {visibleNotifications.length}
+              {unreadCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-500 text-white shadow-2xs">
+                  {unreadCount} unread
                 </span>
               )}
             </div>
@@ -136,8 +169,17 @@ export const ProjectDeadlineNotificationPanel: React.FC<NotificationPanelProps> 
           </div>
         </div>
 
-        {/* Clear All & Filters */}
+        {/* Action Controls */}
         <div className="flex items-center gap-2 self-end sm:self-center">
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="text-xs font-semibold text-brand hover:bg-brand/10 px-2.5 py-1.5 rounded-lg border border-brand/20 transition cursor-pointer flex items-center gap-1"
+              title="Mark all notifications as read"
+            >
+              <CheckCheck size={13} /> Mark all read
+            </button>
+          )}
           {filteredNotifications.length > 0 && (
             <button
               onClick={clearAllVisible}
@@ -205,71 +247,91 @@ export const ProjectDeadlineNotificationPanel: React.FC<NotificationPanelProps> 
             )}
           </div>
         ) : (
-          filteredNotifications.map(notification => (
-            <div
-              key={notification.id}
-              onClick={() => handleCardClick(notification.projectId)}
-              className="p-3.5 sm:p-4 hover:bg-slate-50/80 transition cursor-pointer group flex items-start justify-between gap-3"
-            >
-              <div className="flex items-start gap-3 min-w-0 flex-1">
-                {/* Icon badge */}
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                    notification.type === 'project'
-                      ? 'bg-blue-100 text-blue-700'
-                      : notification.type === 'subtask'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}
-                >
-                  {notification.type === 'project' ? (
-                    <Layers size={16} />
-                  ) : (
-                    <ListTodo size={16} />
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                      {notification.type === 'project' ? 'Project Deadline' : notification.type === 'subtask' ? 'Subtask Deadline' : 'Task Deadline'}
-                    </span>
-                    {notification.priority && (
-                      <Badge type="priority" value={notification.priority} />
+          filteredNotifications.map(notification => {
+            const isRead = readIds.includes(notification.id);
+            return (
+              <div
+                key={notification.id}
+                onClick={() => handleCardClick(notification.projectId, notification.id)}
+                className={`p-3.5 sm:p-4 transition cursor-pointer group flex items-start justify-between gap-3 ${
+                  isRead ? 'bg-white opacity-85 hover:bg-slate-50' : 'bg-brand-light/20 hover:bg-brand-light/30'
+                }`}
+              >
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  {/* Icon badge */}
+                  <div className="relative shrink-0 mt-0.5">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        notification.type === 'project'
+                          ? 'bg-blue-100 text-blue-700'
+                          : notification.type === 'subtask'
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {notification.type === 'project' ? <Layers size={16} /> : <ListTodo size={16} />}
+                    </div>
+                    {!isRead && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-brand animate-pulse" title="Unread notification" />
                     )}
-                    {getUrgencyBadge(notification.daysRemaining)}
                   </div>
 
-                  <p className="text-sm font-semibold text-slate-900 group-hover:text-brand transition truncate">
-                    {notification.title}
-                  </p>
+                  {/* Content */}
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold tracking-wide uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                        {notification.type === 'project' ? 'Project Deadline' : notification.type === 'subtask' ? 'Subtask Deadline' : 'Task Deadline'}
+                      </span>
+                      {notification.priority && (
+                        <Badge type="priority" value={notification.priority} />
+                      )}
+                      {getUrgencyBadge(notification.daysRemaining)}
+                    </div>
 
-                  <p className="text-xs text-slate-500 line-clamp-1">
-                    {notification.subtitle} • Project: <span className="font-medium text-slate-700">{notification.projectName}</span>
-                  </p>
+                    <p className={`text-sm ${isRead ? 'font-medium text-slate-700' : 'font-bold text-slate-900'} group-hover:text-brand transition truncate`}>
+                      {notification.title}
+                    </p>
 
-                  <p className="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5">
-                    <Calendar size={11} /> Due: {fmtDate(notification.dueDate)}
-                  </p>
+                    <p className="text-xs text-slate-500 line-clamp-1">
+                      {notification.subtitle} • Project: <span className="font-medium text-slate-700">{notification.projectName}</span>
+                    </p>
+
+                    <p className="text-[11px] text-slate-400 flex items-center gap-1 pt-0.5">
+                      <Calendar size={11} /> Due: {fmtDate(notification.dueDate)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-1 shrink-0 self-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleRead(notification.id);
+                    }}
+                    className={`p-1.5 rounded-lg transition cursor-pointer ${
+                      isRead
+                        ? 'text-slate-300 hover:text-emerald-600 hover:bg-emerald-50'
+                        : 'text-slate-400 hover:text-brand hover:bg-brand/10'
+                    }`}
+                    title={isRead ? 'Mark as unread' : 'Mark as read'}
+                  >
+                    <Check size={15} className={isRead ? 'text-emerald-500' : ''} />
+                  </button>
+                  <button
+                    onClick={(e) => clearSingleNotification(e, notification.id)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                    title="Clear notification"
+                  >
+                    <X size={15} />
+                  </button>
+                  <div className="p-1.5 text-slate-300 group-hover:text-slate-600 transition">
+                    <ChevronRight size={16} />
+                  </div>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-1 shrink-0 self-center">
-                <button
-                  onClick={(e) => clearSingleNotification(e, notification.id)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                  title="Clear notification"
-                >
-                  <X size={15} />
-                </button>
-                <div className="p-1.5 text-slate-300 group-hover:text-slate-600 transition">
-                  <ChevronRight size={16} />
-                </div>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

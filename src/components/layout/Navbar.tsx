@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Bell, User, LogOut, Menu, X, CheckCircle2, ShieldAlert, Calendar, Clock, Layers, ListTodo, ChevronRight } from 'lucide-react';
+import { Bell, User, LogOut, Menu, X, CheckCircle2, ShieldAlert, Calendar, Clock, Layers, ListTodo, ChevronRight, CheckCheck, Check } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { apiClient } from '../../lib/apiClient';
 import { Badge } from '../ui/Badge';
@@ -11,6 +11,7 @@ interface NavbarProps {
 }
 
 const STORAGE_KEY = 'deadlinehub_cleared_notifications';
+const READ_STORAGE_KEY = 'deadlinehub_read_notifications';
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
@@ -23,6 +24,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const [clearedIds, setClearedIds] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [readIds, setReadIds] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem(READ_STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -131,6 +141,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   }, [clearedIds]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(readIds));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [readIds]);
+
+  useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
@@ -149,13 +167,24 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   };
 
   const visibleNotifications = notifications.filter(n => !clearedIds.includes(n.id));
-  const unreadCount = visibleNotifications.length;
+  const unreadCount = visibleNotifications.filter(n => !readIds.includes(n.id)).length;
 
   const filteredNotifications = visibleNotifications.filter(n => {
     if (activeTab === 'project') return n.type === 'project';
     if (activeTab === 'subtask') return n.type === 'subtask' || n.type === 'task';
     return true;
   });
+
+  const toggleRead = (id: string) => {
+    setReadIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const markAllAsRead = () => {
+    const visibleUnreadIds = filteredNotifications.map(n => n.id);
+    setReadIds(prev => Array.from(new Set([...prev, ...visibleUnreadIds])));
+  };
 
   const clearSingleNotification = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -167,7 +196,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     setClearedIds(prev => Array.from(new Set([...prev, ...idsToClear])));
   };
 
-  const handleItemClick = (projectId: string) => {
+  const handleItemClick = (projectId: string, notificationId: string) => {
+    if (!readIds.includes(notificationId)) {
+      setReadIds(prev => [...prev, notificationId]);
+    }
     setNotifOpen(false);
     navigate(`/projects/${projectId}`);
   };
@@ -239,7 +271,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               setNotifOpen(!notifOpen);
               if (!notifOpen) loadNotifications();
             }}
-            title={unreadCount > 0 ? `${unreadCount} deadline notification(s)` : 'Notifications'}
+            title={unreadCount > 0 ? `${unreadCount} unread notification(s)` : 'Notifications'}
             className={`relative p-2 rounded-xl transition cursor-pointer ${
               notifOpen ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
             }`}
@@ -254,7 +286,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
           {/* Popup Notification Panel Drawer */}
           {notifOpen && (
-            <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-[400px] bg-white border border-slate-200 shadow-2xl rounded-2xl z-50 overflow-hidden animate-pop-in max-h-[85vh] sm:max-h-[520px] flex flex-col">
+            <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-[420px] bg-white border border-slate-200 shadow-2xl rounded-2xl z-50 overflow-hidden animate-pop-in max-h-[85vh] sm:max-h-[520px] flex flex-col">
               {/* Drawer Header */}
               <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
@@ -263,20 +295,30 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-heading font-bold text-slate-900 text-xs sm:text-sm truncate">Notifications</h3>
-                    <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Deadlines approaching within 7 days</p>
+                    <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">7-day upcoming deadlines</p>
                   </div>
                   {unreadCount > 0 && (
-                    <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand text-white shrink-0">
-                      {unreadCount}
+                    <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white shrink-0" title="Unread notifications count">
+                      {unreadCount} unread
                     </span>
                   )}
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-[10px] sm:text-[11px] font-semibold text-brand hover:bg-brand/10 px-2 py-1 rounded-lg border border-brand/20 transition cursor-pointer flex items-center gap-1"
+                      title="Mark all displayed notifications as read"
+                    >
+                      <CheckCheck size={12} /> Mark read
+                    </button>
+                  )}
                   {filteredNotifications.length > 0 && (
                     <button
                       onClick={clearAllVisible}
                       className="text-[10px] sm:text-[11px] font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-lg border border-slate-200 transition cursor-pointer flex items-center gap-1"
+                      title="Clear all notifications"
                     >
                       Clear all
                     </button>
@@ -345,60 +387,84 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                     )}
                   </div>
                 ) : (
-                  filteredNotifications.map(n => (
-                    <div
-                      key={n.id}
-                      onClick={() => handleItemClick(n.projectId)}
-                      className="p-3 hover:bg-slate-50 transition cursor-pointer group flex items-start justify-between gap-2.5"
-                    >
-                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                        <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                            n.type === 'project'
-                              ? 'bg-blue-100 text-blue-700'
-                              : n.type === 'subtask'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {n.type === 'project' ? <Layers size={14} /> : <ListTodo size={14} />}
-                        </div>
-
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-[10px] font-bold tracking-wide uppercase px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
-                              {n.type === 'project' ? 'Project' : n.type === 'subtask' ? 'Subtask' : 'Task'}
-                            </span>
-                            {n.priority && <Badge type="priority" value={n.priority} />}
-                            {getUrgencyBadge(n.daysRemaining)}
+                  filteredNotifications.map(n => {
+                    const isRead = readIds.includes(n.id);
+                    return (
+                      <div
+                        key={n.id}
+                        onClick={() => handleItemClick(n.projectId, n.id)}
+                        className={`p-3 transition cursor-pointer group flex items-start justify-between gap-2.5 ${
+                          isRead ? 'bg-white opacity-85 hover:bg-slate-50' : 'bg-brand-light/20 hover:bg-brand-light/30'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <div className="relative shrink-0 mt-0.5">
+                            <div
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                                n.type === 'project'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : n.type === 'subtask'
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {n.type === 'project' ? <Layers size={14} /> : <ListTodo size={14} />}
+                            </div>
+                            {!isRead && (
+                              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-brand animate-pulse" title="Unread" />
+                            )}
                           </div>
 
-                          <p className="text-xs font-semibold text-slate-900 group-hover:text-brand transition truncate">
-                            {n.title}
-                          </p>
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-[10px] font-bold tracking-wide uppercase px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">
+                                {n.type === 'project' ? 'Project' : n.type === 'subtask' ? 'Subtask' : 'Task'}
+                              </span>
+                              {n.priority && <Badge type="priority" value={n.priority} />}
+                              {getUrgencyBadge(n.daysRemaining)}
+                            </div>
 
-                          <p className="text-[11px] text-slate-500 truncate">
-                            {n.subtitle} • <span className="font-medium text-slate-700">{n.projectName}</span>
-                          </p>
+                            <p className={`text-xs ${isRead ? 'font-medium text-slate-700' : 'font-bold text-slate-900'} group-hover:text-brand transition truncate`}>
+                              {n.title}
+                            </p>
 
-                          <p className="text-[10px] text-slate-400 flex items-center gap-1 pt-0.5">
-                            <Calendar size={10} /> Due: {fmtDate(n.dueDate)}
-                          </p>
+                            <p className="text-[11px] text-slate-500 truncate">
+                              {n.subtitle} • <span className="font-medium text-slate-700">{n.projectName}</span>
+                            </p>
+
+                            <p className="text-[10px] text-slate-400 flex items-center gap-1 pt-0.5">
+                              <Calendar size={10} /> Due: {fmtDate(n.dueDate)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0 self-center">
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              toggleRead(n.id);
+                            }}
+                            className={`p-1 rounded-md transition cursor-pointer ${
+                              isRead
+                                ? 'text-slate-300 hover:text-emerald-600 hover:bg-emerald-50'
+                                : 'text-slate-400 hover:text-brand hover:bg-brand/10'
+                            }`}
+                            title={isRead ? 'Mark as unread' : 'Mark as read'}
+                          >
+                            <Check size={14} className={isRead ? 'text-emerald-500' : ''} />
+                          </button>
+                          <button
+                            onClick={e => clearSingleNotification(e, n.id)}
+                            className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Clear notification"
+                          >
+                            <X size={14} />
+                          </button>
+                          <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition" />
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-0.5 shrink-0 self-center">
-                        <button
-                          onClick={e => clearSingleNotification(e, n.id)}
-                          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                          title="Clear notification"
-                        >
-                          <X size={14} />
-                        </button>
-                        <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition" />
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
