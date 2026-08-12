@@ -11,6 +11,7 @@ import taskRoutes from './routes/tasks.js';
 import subtaskRoutes from './routes/subtasks.js';
 import adminRoutes from './routes/admin.js';
 import profileRoutes from './routes/profile.js';
+import notificationReadsRoutes from './routes/notificationReads.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,6 +32,7 @@ app.use('/api', taskRoutes);
 app.use('/api', subtaskRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/notification-reads', notificationReadsRoutes);
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {

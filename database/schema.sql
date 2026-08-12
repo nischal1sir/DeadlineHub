@@ -280,4 +280,27 @@ DROP POLICY IF EXISTS "System settings editable by admins" ON public.system_sett
 CREATE POLICY "System settings editable by admins"
 ON public.system_settings FOR ALL TO authenticated USING (public.is_admin());
 
+-- ── 7-Day Deadline Schema Updates ──────────────────────────────────────
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
+ALTER TABLE public.subtasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS public.user_notification_reads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    notification_key TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE NOT NULL,
+    is_cleared BOOLEAN DEFAULT FALSE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    CONSTRAINT unique_user_notification UNIQUE (user_id, notification_key)
+);
+
+ALTER TABLE public.user_notification_reads ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage their own notification reads" ON public.user_notification_reads;
+CREATE POLICY "Users can manage their own notification reads"
+ON public.user_notification_reads FOR ALL TO authenticated
+USING (user_id = auth.uid())
+WITH CHECK (user_id = auth.uid());
+
 -- SCHEMA COMPLETE ✓
