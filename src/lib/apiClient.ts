@@ -110,6 +110,10 @@ export const apiClient = {
     return request(`/tasks/${id}`, 'PUT', updates);
   },
 
+  getPendingTasks: async (): Promise<any[]> => {
+    return request('/tasks/pending');
+  },
+
   deleteTask: async (id: string) => {
     return request(`/tasks/${id}`, 'DELETE');
   },
@@ -195,8 +199,12 @@ export const apiClient = {
     return [];
   },
 
-  // N O T I F I C A T I O N  R E A D S  (server-side, per-user)
-  getNotificationReads: async (): Promise<{ readIds: string[]; clearedIds: string[] }> => {
+  // N O T I F I C A T I O N S  (server-side, per-user)
+  getNotifications: async (): Promise<{
+    deadlines: any[];
+    readIds: string[];
+    clearedIds: string[];
+  }> => {
     return request('/notification-reads');
   },
 
