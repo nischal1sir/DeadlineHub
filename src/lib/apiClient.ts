@@ -21,12 +21,21 @@ async function request(endpoint: string, method = 'GET', body?: any) {
   const config: RequestInit = { method, headers };
   if (body) config.body = JSON.stringify(body);
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, config);
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.message || 'Something went wrong');
+  try {
+    const response = await fetch(`${BASE_URL}${endpoint}`, config);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || 'Something went wrong');
+    }
+    return await response.json();
+  } catch (err: any) {
+    if (err.name === 'TypeError' && (err.message === 'Failed to fetch' || err.message.includes('fetch'))) {
+      throw new Error(
+        `Cannot connect to backend API server at ${BASE_URL}. Ensure the backend is deployed and VITE_API_URL environment variable is set.`
+      );
+    }
+    throw err;
   }
-  return response.json();
 }
 
 export const apiClient = {

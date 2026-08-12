@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import {  ShieldCheck, Zap, Layers, BarChart3 } from 'lucide-react';
+import { ShieldCheck, Zap, Layers, BarChart3 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -105,10 +105,6 @@ export const Login: React.FC = () => {
           0%, 100% { opacity: 0.2; transform: scale(0.8); }
           50% { opacity: 1; transform: scale(1.2); }
         }
-        @keyframes gradientShift {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
         @keyframes drift {
           0% { transform: translate(0, 0) rotate(0deg); }
           100% { transform: translate(0, 0) rotate(360deg); }
@@ -152,9 +148,7 @@ export const Login: React.FC = () => {
           animation: shimmer 4s linear infinite;
         }
         .mesh-bg {
-          background: linear-gradient(120deg, #606e56, #748469 40%, #ABB290 75%, #606e56);
-          background-size: 200% 200%;
-          animation: gradientShift 12s ease infinite;
+          background: #748469;
         }
         .constellation-line {
           stroke-dasharray: 240;
@@ -262,13 +256,11 @@ export const Login: React.FC = () => {
               <img src={logoImg} alt="Logo" className="w-14 h-14 drop-shadow-lg" />
             </div>
           </div>
-
           <div className="anim-fade-up" style={{ animationDelay: '0.15s' }}>
             <span className="font-heading font-extrabold text-5xl tracking-tight text-white">
               Deadline<span className="brand-shimmer">Hub</span>
             </span>
           </div>
-
           <h1
             className="mt-6 text-2xl md:text-3xl font-heading font-semibold text-slate-200 leading-snug max-w-xl anim-fade-up"
             style={{ animationDelay: '0.25s' }}
@@ -304,11 +296,9 @@ export const Login: React.FC = () => {
       {/* Right: compact login — 25% */}
       <div className="flex-1 lg:w-[25%] flex items-center justify-center p-6 relative bg-surface">
         <div className="hidden lg:block absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[#eef4f0] blur-3xl opacity-70 anim-blob-slow" />
-
         <div
-          className={`w-full max-w-sm relative z-10 transition-all duration-700 ease-out ${
-            mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
-          }`}
+          className={`w-full max-w-sm relative z-10 transition-all duration-700 ease-out ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
+            }`}
         >
           {/* Mobile logo */}
           <div className="flex items-center gap-2.5 mb-8 lg:hidden">
@@ -329,9 +319,8 @@ export const Login: React.FC = () => {
 
           {error && (
             <div
-              className={`mb-5 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm font-medium flex items-center gap-2 ${
-                shake ? 'anim-shake' : ''
-              }`}
+              className={`mb-5 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 text-sm font-medium flex items-center gap-2 ${shake ? 'anim-shake' : ''
+                }`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
               {error}
@@ -368,7 +357,6 @@ export const Login: React.FC = () => {
                 </Link>
               </div>
             </div>
-
             <Button
               type="submit"
               className="w-full transition-all duration-300 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
