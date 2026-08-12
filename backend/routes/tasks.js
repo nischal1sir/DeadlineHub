@@ -5,7 +5,56 @@ import { authenticateToken } from '../middleware/authMiddleware.js';
 const router = Router();
 router.use(authenticateToken);
 
-// GET /api/projects/:projectId/tasks - Get tasks for a project (with subtasks)
+// ─────────────────────────────────────────────────────
+// GET /api/tasks/pending
+// Returns all non-done tasks across all projects the
+// current user owns, joined with project name.
+// ─────────────────────────────────────────────────────
+router.get('/pending', async (req, res) => {
+  try {
+    // 1. Get all projects owned by this user
+    let projectQuery = supabase.from('projects').select('id, name');
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      projectQuery = projectQuery.eq('owner_id', req.user.id);
+    }
+    const { data: projects, error: projErr } = await projectQuery;
+    if (projErr) throw projErr;
+
+    if (!projects || projects.length === 0) {
+      return res.json([]);
+    }
+
+    const projectIds = projects.map(p => p.id);
+    const projectMap = {};
+    projects.forEach(p => { projectMap[p.id] = p.name; });
+
+    // 2. Get all pending tasks across those projects in one query
+    const { data: tasks, error: taskErr } = await supabase
+      .from('tasks')
+      .select('*')
+      .in('project_id', projectIds)
+      .neq('status', 'done')
+      .order('due_date', { ascending: true, nullsFirst: false });
+
+    if (taskErr) throw taskErr;
+
+    // 3. Enrich with project name
+    const enriched = (tasks || []).map(t => ({
+      ...t,
+      projectName: projectMap[t.project_id] || 'Unknown',
+      projectId: t.project_id,
+    }));
+
+    res.json(enriched);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────
+// GET /api/projects/:projectId/tasks
+// Mounted under /api so resolves to /api/projects/:projectId/tasks
+// ─────────────────────────────────────────────────────
 router.get('/projects/:projectId/tasks', async (req, res) => {
   const { projectId } = req.params;
   try {
@@ -17,7 +66,7 @@ router.get('/projects/:projectId/tasks', async (req, res) => {
 
     if (tasksError) throw tasksError;
 
-    // Fetch subtasks for these tasks
+    // Fetch subtasks for these tasks in one query
     const taskIds = tasks.map(t => t.id);
     let subtasksMap = {};
     if (taskIds.length > 0) {
@@ -45,7 +94,9 @@ router.get('/projects/:projectId/tasks', async (req, res) => {
   }
 });
 
-// POST /api/projects/:projectId/tasks - Create a task
+// ─────────────────────────────────────────────────────
+// POST /api/projects/:projectId/tasks
+// ─────────────────────────────────────────────────────
 router.post('/projects/:projectId/tasks', async (req, res) => {
   const { projectId } = req.params;
   const { title, description, priority, due_date, module_id } = req.body;
@@ -85,14 +136,16 @@ router.post('/projects/:projectId/tasks', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────
 // PUT /api/tasks/:id - Update task details or status
+// ─────────────────────────────────────────────────────
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { status, title, description, priority, due_date } = req.body;
 
   try {
     const updates = { updated_at: new Date().toISOString() };
-    if (status) {
+    if (status !== undefined) {
       updates.status = status;
       updates.completed_at = status === 'done' ? new Date().toISOString() : null;
     }
@@ -115,7 +168,9 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/tasks/:id - Delete a task
+// ─────────────────────────────────────────────────────
+// DELETE /api/tasks/:id
+// ─────────────────────────────────────────────────────
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   try {

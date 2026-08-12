@@ -28,8 +28,10 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api', moduleRoutes);
-app.use('/api', taskRoutes);
-app.use('/api', subtaskRoutes);
+app.use('/api', taskRoutes);        // handles: GET /api/projects/:id/tasks, POST /api/projects/:id/tasks
+app.use('/api/tasks', taskRoutes);  // handles: GET /api/tasks/pending, PUT /api/tasks/:id, DELETE /api/tasks/:id
+app.use('/api', subtaskRoutes);           // handles: GET/POST /api/tasks/:id/subtasks
+app.use('/api/subtasks', subtaskRoutes);  // handles: PUT /api/subtasks/:id/toggle, DELETE /api/subtasks/:id
 app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/notification-reads', notificationReadsRoutes);
