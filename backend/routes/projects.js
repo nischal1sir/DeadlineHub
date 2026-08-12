@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
 
 // POST /api/projects - Create a project
 router.post('/', async (req, res) => {
-  const { name, description } = req.body;
+  const { name, description, due_date } = req.body;
   if (!name) return res.status(400).json({ message: 'Project name is required.' });
 
   try {
@@ -35,6 +35,7 @@ router.post('/', async (req, res) => {
         owner_id: req.user.id,
         name,
         description,
+        due_date: due_date || null,
         status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -61,7 +62,7 @@ router.post('/', async (req, res) => {
 // PUT /api/projects/:id - Update a project
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, description, status } = req.body;
+  const { name, description, status, due_date } = req.body;
 
   try {
     const { data, error } = await supabase
@@ -70,6 +71,7 @@ router.put('/:id', async (req, res) => {
         ...(name && { name }),
         ...(description !== undefined && { description }),
         ...(status && { status }),
+        ...(due_date !== undefined && { due_date }),
         updated_at: new Date().toISOString()
       })
       .eq('id', id)

@@ -19,6 +19,7 @@ export const ProjectList: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newDueDate, setNewDueDate] = useState('');
   const [btnLoading, setBtnLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -42,8 +43,8 @@ export const ProjectList: React.FC = () => {
     if (!newName.trim()) { setFormError('Project name is required.'); return; }
     setBtnLoading(true); setFormError(null);
     try {
-      await apiClient.createProject(newName.trim(), newDesc.trim());
-      setNewName(''); setNewDesc(''); setModalOpen(false); await load();
+      await apiClient.createProject(newName.trim(), newDesc.trim(), newDueDate || undefined);
+      setNewName(''); setNewDesc(''); setNewDueDate(''); setModalOpen(false); await load();
     } catch (err: any) { setFormError(err.message || 'Failed to create project.'); }
     finally { setBtnLoading(false); }
   };
@@ -150,6 +151,7 @@ export const ProjectList: React.FC = () => {
               value={newDesc} onChange={e => setNewDesc(e.target.value)}
             />
           </div>
+          <Input type="date" label="Project Target Deadline (Optional)" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} />
         </form>
       </Modal>
     </div>

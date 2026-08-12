@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import logoImg from '../../assets/logo.png';
 import {
   LayoutDashboard, FolderKanban, Calendar,
-  GanttChartSquare, BarChart2, User,
+  GanttChartSquare, BarChart2, User
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 

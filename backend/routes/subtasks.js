@@ -25,7 +25,7 @@ router.get('/tasks/:taskId/subtasks', async (req, res) => {
 // POST /api/tasks/:taskId/subtasks - Create subtask
 router.post('/tasks/:taskId/subtasks', async (req, res) => {
   const { taskId } = req.params;
-  const { title } = req.body;
+  const { title, due_date } = req.body;
 
   if (!title) return res.status(400).json({ message: 'Subtask title is required.' });
 
@@ -35,6 +35,7 @@ router.post('/tasks/:taskId/subtasks', async (req, res) => {
       .insert([{
         task_id: taskId,
         title,
+        due_date: due_date || null,
         is_completed: false,
         created_at: new Date().toISOString()
       }])

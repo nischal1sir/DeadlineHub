@@ -72,11 +72,11 @@ export const apiClient = {
     return request('/projects');
   },
 
-  createProject: async (name: string, description: string) => {
-    return request('/projects', 'POST', { name, description });
+  createProject: async (name: string, description: string, due_date?: string) => {
+    return request('/projects', 'POST', { name, description, due_date });
   },
 
-  updateProject: async (id: string, updates: { name?: string; description?: string; status?: string }) => {
+  updateProject: async (id: string, updates: { name?: string; description?: string; status?: string; due_date?: string }) => {
     return request(`/projects/${id}`, 'PUT', updates);
   },
 
@@ -119,8 +119,8 @@ export const apiClient = {
     return request(`/tasks/${taskId}/subtasks`);
   },
 
-  createSubtask: async (taskId: string, title: string) => {
-    return request(`/tasks/${taskId}/subtasks`, 'POST', { title });
+  createSubtask: async (taskId: string, title: string, due_date?: string) => {
+    return request(`/tasks/${taskId}/subtasks`, 'POST', { title, due_date });
   },
 
   toggleSubtask: async (id: string) => {

@@ -4,6 +4,7 @@ import { CheckSquare, Calendar, Plus, Activity, Clock, TrendingUp, FolderOpenDot
 import { apiClient } from '../lib/apiClient';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { ProjectDeadlineNotificationPanel, type DeadlineNotification } from '../components/dashboard/ProjectDeadlineNotificationPanel';
 
 const MetricCard = ({ icon: Icon, value, label, iconBg }: { icon: any; value: string | number; label: string; iconBg: string }) => (
   <div className="glass p-5 flex items-center gap-4">
@@ -23,6 +24,7 @@ export const Dashboard: React.FC = () => {
   const [tasksStats, setTasksStats] = useState({ total: 0, completed: 0, active: 0 });
   const [todaysTasks, setTodaysTasks] = useState<any[]>([]);
   const [upcomingTasks, setUpcomingTasks] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<DeadlineNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,10 +33,85 @@ export const Dashboard: React.FC = () => {
         const projs = await apiClient.getProjects();
         setProjectsCount(projs.length);
         let allTasks: any[] = [];
+        const deadlineList: DeadlineNotification[] = [];
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
         for (const p of projs) {
-          const t = await apiClient.getTasksForProject(p.id);
-          allTasks = [...allTasks, ...t.map((x: any) => ({ ...x, projectName: p.name }))];
+          // Check Project level deadline
+          if (p.status !== 'completed' && (p.due_date || p.deadline)) {
+            const pDateStr = p.due_date || p.deadline;
+            const pDate = new Date(pDateStr);
+            pDate.setHours(0, 0, 0, 0);
+            const diffDays = Math.ceil((pDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 7) {
+              deadlineList.push({
+                id: `proj-${p.id}`,
+                type: 'project',
+                title: p.name,
+                subtitle: p.description || 'Project deadline approaching',
+                projectName: p.name,
+                projectId: p.id,
+                dueDate: pDateStr,
+                daysRemaining: diffDays
+              });
+            }
+          }
+
+          // Fetch Tasks for project
+          const tList = await apiClient.getTasksForProject(p.id);
+          allTasks = [...allTasks, ...tList.map((x: any) => ({ ...x, projectName: p.name }))];
+
+          for (const task of tList) {
+            // Task level deadline
+            if (task.status !== 'done' && task.due_date) {
+              const tDate = new Date(task.due_date);
+              tDate.setHours(0, 0, 0, 0);
+              const diffDays = Math.ceil((tDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              if (diffDays <= 7) {
+                deadlineList.push({
+                  id: `task-${task.id}`,
+                  type: 'task',
+                  title: task.title,
+                  subtitle: `Task in project "${p.name}"`,
+                  projectName: p.name,
+                  projectId: p.id,
+                  dueDate: task.due_date,
+                  daysRemaining: diffDays,
+                  priority: task.priority
+                });
+              }
+            }
+
+            // Subtasks level deadline
+            if (task.subtasks && Array.isArray(task.subtasks)) {
+              for (const sub of task.subtasks) {
+                if (!sub.is_completed) {
+                  const subDueDate = sub.due_date || task.due_date;
+                  if (subDueDate) {
+                    const sDate = new Date(subDueDate);
+                    sDate.setHours(0, 0, 0, 0);
+                    const diffDays = Math.ceil((sDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                    if (diffDays <= 7) {
+                      deadlineList.push({
+                        id: `subtask-${sub.id}`,
+                        type: 'subtask',
+                        title: sub.title,
+                        subtitle: `Subtask under "${task.title}"`,
+                        projectName: p.name,
+                        projectId: p.id,
+                        dueDate: subDueDate,
+                        daysRemaining: diffDays,
+                        priority: task.priority
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
+
         const completed = allTasks.filter((t: any) => t.status === 'done').length;
         setTasksStats({ total: allTasks.length, completed, active: allTasks.length - completed });
         const todayStr = new Date().toISOString().split('T')[0];
@@ -45,6 +122,9 @@ export const Dashboard: React.FC = () => {
             .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
             .slice(0, 5)
         );
+
+        deadlineList.sort((a, b) => a.daysRemaining - b.daysRemaining);
+        setNotifications(deadlineList);
       } finally { setLoading(false); }
     })();
   }, []);
@@ -118,6 +198,9 @@ export const Dashboard: React.FC = () => {
           value={`${tasksStats.total > 0 ? Math.round(tasksStats.completed / tasksStats.total * 100) : 0}%`}
           label="Completion Rate" iconBg="bg-slate-100 text-slate-700" />
       </div>
+
+      {/* 7-Day Project & Subtask Notification Panel */}
+      <ProjectDeadlineNotificationPanel notifications={notifications} />
 
       {/* Widgets */}
       <div className="grid lg:grid-cols-2 gap-6">
