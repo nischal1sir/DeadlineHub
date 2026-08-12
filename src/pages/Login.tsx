@@ -258,7 +258,7 @@ export const Login: React.FC = () => {
             </div>
           </div>
           <div className="anim-fade-up" style={{ animationDelay: '0.15s' }}>
-            <span className="font-heading font-extrabold text-5xl tracking-tight text-white">
+            <span className="font-heading font-extrabold text-5xl tracking-tight text-black-500">
               Deadline<span className="brand-shimmer">Hub</span>
             </span>
           </div>
@@ -266,7 +266,7 @@ export const Login: React.FC = () => {
             className="mt-6 text-2xl md:text-3xl font-heading font-semibold text-slate-200 leading-snug max-w-xl anim-fade-up"
             style={{ animationDelay: '0.25s' }}
           >
-            Manage projects <span className="text-[#F9EAD7]">with intelligence.</span>
+            Manage projects with intelligence
           </h1>
           <p
             className="mt-4 text-black text-base leading-relaxed max-w-md anim-fade-up"
@@ -306,7 +306,7 @@ export const Login: React.FC = () => {
             <div className="anim-logo-pop w-10 h-10 rounded-2xl bg-[#f0f3ee] flex items-center justify-center ring-1 ring-[#AAC1B1]/50">
               <img src={logoImg} alt="Logo" className="w-6 h-6" />
             </div>
-            <span className="font-heading font-bold text-2xl text-slate-900">
+            <span className="font-heading font-bold text-2xl text-black-500">
               Deadline<span className="text-brand">Hub</span>
             </span>
           </div>

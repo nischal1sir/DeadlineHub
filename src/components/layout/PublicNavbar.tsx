@@ -20,8 +20,9 @@ export const Header: React.FC = () => {
             alt="DeadlineHub"
             className="w-8 h-8 rounded-lg object-cover shrink-0 group-hover:opacity-90 transition-opacity"
           />
-          <span className="font-heading font-bold text-lg text-slate-900 tracking-tight">
-            DeadlineHub
+          <span className="font-heading font-bold text-lg tracking-tight">
+            <span className="text-slate-900">Deadline</span>
+            <span className="text-brand">Hub</span>
           </span>
         </button>
 

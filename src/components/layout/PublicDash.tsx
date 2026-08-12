@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { 
   FolderOpenDot, Users, Zap, ShieldCheck, FolderKanban, 
   CheckCircle2, ArrowRight, BarChart3, CalendarDays, 
-  Bell, Lock, Sparkles, Target, Clock, ChevronRight,
+  Bell, Lock, FolderTree, Target, Clock, ChevronRight,
   Star, TrendingUp, Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -141,17 +141,17 @@ const FEATURES = [
 const TESTIMONIALS = [
   {
     quote: "DeadlineHUB cut our missed deadlines by 80%. The visual progress tracking keeps everyone accountable without micromanaging.",
-    author: "Sarah Mitchell",
+    author: "Mukesh Khatiwada",
     role: "Product Lead, TechFlow"
   },
   {
     quote: "Finally a project tool that doesn't feel like a chore. We onboarded the whole team in under 30 minutes.",
-    author: "Raj Patel",
-    role: "Engineering Manager"
+    author: "Saujal Karki",
+    role: "Senior Developer"
   },
   {
     quote: "The real-time sync is a game changer. I can see exactly what's blocking our release without asking in Slack.",
-    author: "Emma Chen",
+    author: "Elgems Rai",
     role: "Startup Founder"
   }
 ];
@@ -173,12 +173,12 @@ export const PublicDashboard: React.FC = () => {
           <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
             <div className="max-w-3xl mx-auto text-center space-y-8">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand/10 text-brand text-xs font-semibold border border-brand/20">
-                <Sparkles size={14} />
-                <span>Project Management Reimagined</span>
+                <FolderTree size={14} />
+                <span>Project Management</span>
               </div>
               
               <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl text-slate-900 leading-tight tracking-tight">
-                Never Miss a <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#748469] to-[#AAC1B1]">Deadline</span> Again
+                Never Miss a <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#748469] to-[#FF0000]">Deadline</span> Again
               </h1>
               
               <p className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed">
@@ -259,7 +259,7 @@ export const PublicDashboard: React.FC = () => {
                     <div className="w-3 h-3 rounded-full bg-emerald-400" />
                   </div>
                   <div className="flex-1 text-center">
-                    <div className="inline-block px-3 py-1 rounded-md bg-white text-[10px] text-slate-400 font-mono">deadlinehub.app/dashboard</div>
+                    <div className="inline-block px-3 py-1 rounded-md bg-white text-[10px] text-slate-400 font-mono">deadlinehub-online.app/dashboard</div>
                   </div>
                 </div>
                 <div className="p-5 space-y-4 bg-white/60">
