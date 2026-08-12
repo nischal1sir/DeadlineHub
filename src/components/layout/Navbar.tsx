@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Bell, User, LogOut, Menu, X, CheckCircle2, ShieldAlert, Calendar, Clock, Layers, ListTodo, ChevronRight, CheckCheck, Check } from 'lucide-react';
+import { Bell, BellOff, User, LogOut, Menu, X, CheckCircle2, Check, ShieldAlert, Calendar, Clock, Layers, ListTodo, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { apiClient } from '../../lib/apiClient';
 import { Badge } from '../ui/Badge';
@@ -10,8 +10,6 @@ interface NavbarProps {
   onToggleSidebar: () => void;
 }
 
-const STORAGE_KEY = 'deadlinehub_cleared_notifications';
-const READ_STORAGE_KEY = 'deadlinehub_read_notifications';
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
@@ -20,24 +18,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<DeadlineNotification[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'project' | 'subtask'>('all');
-
-  const [clearedIds, setClearedIds] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const [readIds, setReadIds] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem(READ_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [readIds, setReadIds] = useState<string[]>([]);
+  const [clearedIds, setClearedIds] = useState<string[]>([]);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -128,25 +110,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     }
   };
 
+  // Load server-side read/cleared state
+  const loadReads = async () => {
+    try {
+      const { readIds: r, clearedIds: c } = await apiClient.getNotificationReads();
+      setReadIds(r);
+      setClearedIds(c);
+    } catch {
+      // fallback: stay with empty state
+    }
+  };
+
   useEffect(() => {
     loadNotifications();
+    loadReads();
   }, [user]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(clearedIds));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [clearedIds]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(readIds));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [readIds]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -167,7 +145,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   };
 
   const visibleNotifications = notifications.filter(n => !clearedIds.includes(n.id));
-  const unreadCount = visibleNotifications.filter(n => !readIds.includes(n.id)).length;
+  // Unread = visible and not yet read
+  const unreadNotifications = visibleNotifications.filter(n => !readIds.includes(n.id));
+  const unreadCount = unreadNotifications.length;
 
   const filteredNotifications = visibleNotifications.filter(n => {
     if (activeTab === 'project') return n.type === 'project';
@@ -175,33 +155,38 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     return true;
   });
 
-  const toggleRead = (id: string) => {
-    setReadIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
-
-  const markAllAsRead = () => {
-    const visibleUnreadIds = filteredNotifications.map(n => n.id);
-    setReadIds(prev => Array.from(new Set([...prev, ...visibleUnreadIds])));
-  };
-
   const clearSingleNotification = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setClearedIds(prev => [...prev, id]);
+    setReadIds(prev => prev.filter(rid => rid !== id));
+    // persist server-side
+    apiClient.markNotificationsCleared([id]).catch(console.error);
   };
 
   const clearAllVisible = () => {
     const idsToClear = filteredNotifications.map(n => n.id);
     setClearedIds(prev => Array.from(new Set([...prev, ...idsToClear])));
+    setReadIds(prev => prev.filter(rid => !idsToClear.includes(rid)));
+    apiClient.markNotificationsCleared(idsToClear).catch(console.error);
   };
 
-  const handleItemClick = (projectId: string, notificationId: string) => {
-    if (!readIds.includes(notificationId)) {
-      setReadIds(prev => [...prev, notificationId]);
-    }
+  const markAsRead = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setReadIds(prev => Array.from(new Set([...prev, id])));
+    apiClient.markNotificationsRead([id]).catch(console.error);
+  };
+
+  const markAllAsRead = () => {
+    const ids = filteredNotifications.map(n => n.id);
+    setReadIds(prev => Array.from(new Set([...prev, ...ids])));
+    apiClient.markNotificationsRead(ids).catch(console.error);
+  };
+
+  const handleItemClick = (n: DeadlineNotification) => {
+    setReadIds(prev => Array.from(new Set([...prev, n.id])));
+    apiClient.markNotificationsRead([n.id]).catch(console.error);
     setNotifOpen(false);
-    navigate(`/projects/${projectId}`);
+    navigate(`/projects/${n.projectId}`);
   };
 
   const fmtDate = (isoStr: string) => {
@@ -271,7 +256,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               setNotifOpen(!notifOpen);
               if (!notifOpen) loadNotifications();
             }}
-            title={unreadCount > 0 ? `${unreadCount} unread notification(s)` : 'Notifications'}
+            title={unreadCount > 0 ? `${unreadCount} deadline notification(s)` : 'Notifications'}
             className={`relative p-2 rounded-xl transition cursor-pointer ${
               notifOpen ? 'bg-brand/10 text-brand' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
             }`}
@@ -286,7 +271,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
           {/* Popup Notification Panel Drawer */}
           {notifOpen && (
-            <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-[420px] bg-white border border-slate-200 shadow-2xl rounded-2xl z-50 overflow-hidden animate-pop-in max-h-[85vh] sm:max-h-[520px] flex flex-col">
+            <div className="fixed inset-x-2 top-14 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-[400px] bg-white border border-slate-200 shadow-2xl rounded-2xl z-50 overflow-hidden animate-pop-in max-h-[85vh] sm:max-h-[520px] flex flex-col">
               {/* Drawer Header */}
               <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
@@ -295,11 +280,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-heading font-bold text-slate-900 text-xs sm:text-sm truncate">Notifications</h3>
-                    <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">7-day upcoming deadlines</p>
+                    <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Deadlines approaching within 7 days</p>
                   </div>
                   {unreadCount > 0 && (
-                    <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white shrink-0" title="Unread notifications count">
-                      {unreadCount} unread
+                    <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand text-white shrink-0">
+                      {unreadCount}
                     </span>
                   )}
                 </div>
@@ -308,19 +293,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="text-[10px] sm:text-[11px] font-semibold text-brand hover:bg-brand/10 px-2 py-1 rounded-lg border border-brand/20 transition cursor-pointer flex items-center gap-1"
-                      title="Mark all displayed notifications as read"
+                      className="text-[10px] sm:text-[11px] font-semibold text-slate-600 hover:text-brand hover:bg-brand/5 px-2 py-1 rounded-lg border border-slate-200 transition cursor-pointer flex items-center gap-1"
+                      title="Mark all as read"
                     >
-                      <CheckCheck size={12} /> Mark read
+                      <Check size={11} /> All read
                     </button>
                   )}
                   {filteredNotifications.length > 0 && (
                     <button
                       onClick={clearAllVisible}
                       className="text-[10px] sm:text-[11px] font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 px-2 py-1 rounded-lg border border-slate-200 transition cursor-pointer flex items-center gap-1"
-                      title="Clear all notifications"
+                      title="Clear all"
                     >
-                      Clear all
+                      Clear
                     </button>
                   )}
                   <button
@@ -367,7 +352,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               </div>
 
               {/* Notification List */}
-              <div className="divide-y divide-slate-100 max-h-[380px] overflow-y-auto">
+              <div className="divide-y divide-slate-100 flex-1 overflow-y-auto">
                 {filteredNotifications.length === 0 ? (
                   <div className="p-6 text-center flex flex-col items-center justify-center">
                     <CheckCircle2 size={32} className="text-emerald-500 mb-1.5 opacity-80" />
@@ -379,7 +364,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                     </p>
                     {clearedIds.length > 0 && (
                       <button
-                        onClick={() => setClearedIds([])}
+                        onClick={async () => {
+                          setClearedIds([]);
+                          setReadIds([]);
+                          await apiClient.restoreNotifications().catch(console.error);
+                        }}
                         className="mt-2 text-[11px] font-semibold text-brand hover:underline cursor-pointer"
                       >
                         Restore cleared notifications
@@ -392,13 +381,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                     return (
                       <div
                         key={n.id}
-                        onClick={() => handleItemClick(n.projectId, n.id)}
+                        onClick={() => handleItemClick(n)}
                         className={`p-3 transition cursor-pointer group flex items-start justify-between gap-2.5 ${
-                          isRead ? 'bg-white opacity-85 hover:bg-slate-50' : 'bg-brand-light/20 hover:bg-brand-light/30'
+                          isRead ? 'bg-slate-50/60 hover:bg-slate-100/70' : 'hover:bg-brand-light/30'
                         }`}
                       >
                         <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                          <div className="relative shrink-0 mt-0.5">
+                          {/* Unread indicator dot */}
+                          <div className="relative shrink-0 mt-1.5">
                             <div
                               className={`w-7 h-7 rounded-lg flex items-center justify-center ${
                                 n.type === 'project'
@@ -406,12 +396,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                                   : n.type === 'subtask'
                                   ? 'bg-purple-100 text-purple-700'
                                   : 'bg-amber-100 text-amber-800'
-                              }`}
+                              } ${isRead ? 'opacity-60' : ''}`}
                             >
                               {n.type === 'project' ? <Layers size={14} /> : <ListTodo size={14} />}
                             </div>
                             {!isRead && (
-                              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-brand animate-pulse" title="Unread" />
+                              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-brand border-2 border-white" />
                             )}
                           </div>
 
@@ -422,14 +412,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                               </span>
                               {n.priority && <Badge type="priority" value={n.priority} />}
                               {getUrgencyBadge(n.daysRemaining)}
+                              {isRead && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-400">
+                                  <BellOff size={9} /> Read
+                                </span>
+                              )}
                             </div>
 
-                            <p className={`text-xs ${isRead ? 'font-medium text-slate-700' : 'font-bold text-slate-900'} group-hover:text-brand transition truncate`}>
+                            <p className={`text-xs font-semibold transition truncate ${
+                              isRead ? 'text-slate-400 group-hover:text-slate-500' : 'text-slate-900 group-hover:text-brand'
+                            }`}>
                               {n.title}
                             </p>
 
-                            <p className="text-[11px] text-slate-500 truncate">
-                              {n.subtitle} • <span className="font-medium text-slate-700">{n.projectName}</span>
+                            <p className="text-[11px] text-slate-400 truncate">
+                              {n.subtitle} • <span className="font-medium text-slate-500">{n.projectName}</span>
                             </p>
 
                             <p className="text-[10px] text-slate-400 flex items-center gap-1 pt-0.5">
@@ -438,21 +435,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 shrink-0 self-center">
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              toggleRead(n.id);
-                            }}
-                            className={`p-1 rounded-md transition cursor-pointer ${
-                              isRead
-                                ? 'text-slate-300 hover:text-emerald-600 hover:bg-emerald-50'
-                                : 'text-slate-400 hover:text-brand hover:bg-brand/10'
-                            }`}
-                            title={isRead ? 'Mark as unread' : 'Mark as read'}
-                          >
-                            <Check size={14} className={isRead ? 'text-emerald-500' : ''} />
-                          </button>
+                        <div className="flex flex-col items-center gap-1 shrink-0 self-center">
+                          {!isRead && (
+                            <button
+                              onClick={e => markAsRead(e, n.id)}
+                              className="p-1 rounded-md text-slate-400 hover:text-brand hover:bg-brand/10 transition cursor-pointer"
+                              title="Mark as read"
+                            >
+                              <Check size={14} />
+                            </button>
+                          )}
                           <button
                             onClick={e => clearSingleNotification(e, n.id)}
                             className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
@@ -460,7 +452,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                           >
                             <X size={14} />
                           </button>
-                          <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 transition" />
+                          <ChevronRight size={13} className="text-slate-300 group-hover:text-slate-500 transition" />
                         </div>
                       </div>
                     );

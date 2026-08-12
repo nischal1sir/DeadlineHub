@@ -193,5 +193,22 @@ export const apiClient = {
   checkDueTasksAndSendReminders: () => {
     // Handled server-side in production
     return [];
-  }
+  },
+
+  // N O T I F I C A T I O N  R E A D S  (server-side, per-user)
+  getNotificationReads: async (): Promise<{ readIds: string[]; clearedIds: string[] }> => {
+    return request('/notification-reads');
+  },
+
+  markNotificationsRead: async (ids: string[]) => {
+    return request('/notification-reads/mark-read', 'PUT', { ids });
+  },
+
+  markNotificationsCleared: async (ids: string[]) => {
+    return request('/notification-reads/mark-cleared', 'PUT', { ids });
+  },
+
+  restoreNotifications: async () => {
+    return request('/notification-reads/restore', 'PUT');
+  },
 };
