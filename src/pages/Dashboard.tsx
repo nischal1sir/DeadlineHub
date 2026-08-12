@@ -5,6 +5,7 @@ import { apiClient } from '../lib/apiClient';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { ProjectDeadlineNotificationPanel, type DeadlineNotification } from '../components/dashboard/ProjectDeadlineNotificationPanel';
+import { toLocalDateString, getDaysRemaining } from '../lib/dateUtils';
 
 const MetricCard = ({ icon: Icon, value, label, iconBg }: { icon: any; value: string | number; label: string; iconBg: string }) => (
   <div className="glass p-5 flex items-center gap-4">
@@ -26,6 +27,7 @@ export const Dashboard: React.FC = () => {
   const [upcomingTasks, setUpcomingTasks] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<DeadlineNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -41,9 +43,7 @@ export const Dashboard: React.FC = () => {
           // Check Project level deadline
           if (p.status !== 'completed' && (p.due_date || p.deadline)) {
             const pDateStr = p.due_date || p.deadline;
-            const pDate = new Date(pDateStr);
-            pDate.setHours(0, 0, 0, 0);
-            const diffDays = Math.ceil((pDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            const diffDays = getDaysRemaining(pDateStr);
             if (diffDays <= 7) {
               deadlineList.push({
                 id: `proj-${p.id}`,
@@ -65,9 +65,7 @@ export const Dashboard: React.FC = () => {
           for (const task of tList) {
             // Task level deadline
             if (task.status !== 'done' && task.due_date) {
-              const tDate = new Date(task.due_date);
-              tDate.setHours(0, 0, 0, 0);
-              const diffDays = Math.ceil((tDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              const diffDays = getDaysRemaining(task.due_date);
               if (diffDays <= 7) {
                 deadlineList.push({
                   id: `task-${task.id}`,
@@ -89,9 +87,7 @@ export const Dashboard: React.FC = () => {
                 if (!sub.is_completed) {
                   const subDueDate = sub.due_date || task.due_date;
                   if (subDueDate) {
-                    const sDate = new Date(subDueDate);
-                    sDate.setHours(0, 0, 0, 0);
-                    const diffDays = Math.ceil((sDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                    const diffDays = getDaysRemaining(subDueDate);
                     if (diffDays <= 7) {
                       deadlineList.push({
                         id: `subtask-${sub.id}`,
@@ -114,11 +110,11 @@ export const Dashboard: React.FC = () => {
 
         const completed = allTasks.filter((t: any) => t.status === 'done').length;
         setTasksStats({ total: allTasks.length, completed, active: allTasks.length - completed });
-        const todayStr = new Date().toISOString().split('T')[0];
-        setTodaysTasks(allTasks.filter((t: any) => t.status !== 'done' && t.due_date?.split('T')[0] === todayStr));
+        const todayStr = toLocalDateString(new Date());
+        setTodaysTasks(allTasks.filter((t: any) => t.status !== 'done' && toLocalDateString(t.due_date) === todayStr));
         setUpcomingTasks(
           allTasks
-            .filter((t: any) => t.status !== 'done' && t.due_date && t.due_date.split('T')[0] !== todayStr)
+            .filter((t: any) => t.status !== 'done' && t.due_date && toLocalDateString(t.due_date) !== todayStr)
             .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
             .slice(0, 5)
         );
@@ -130,15 +126,39 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const toggleTask = async (task: any) => {
+    if (pendingTaskId === task.id) return; // prevent double-click
     const next = task.status === 'done' ? 'todo' : 'done';
-    await apiClient.updateTask(task.id, { status: next });
     const diff = next === 'done' ? 1 : -1;
+
+    // Optimistic update
+    setPendingTaskId(task.id);
     setTasksStats(p => ({ ...p, completed: p.completed + diff, active: p.active - diff }));
-    setTodaysTasks(p => p.map((t: any) => t.id === task.id ? { ...t, status: next } : t));
+    if (next === 'done') {
+      setTodaysTasks(p => p.filter((t: any) => t.id !== task.id));
+    } else {
+      setTodaysTasks(p => p.map((t: any) => t.id === task.id ? { ...t, status: next } : t));
+    }
+
+    try {
+      await apiClient.updateTask(task.id, { status: next });
+    } catch (err) {
+      // Revert on failure
+      console.error('Failed to update task status:', err);
+      setTasksStats(p => ({ ...p, completed: p.completed - diff, active: p.active + diff }));
+      if (next === 'done') {
+        // Restore the task back to the list
+        setTodaysTasks(p => [...p, { ...task, status: 'todo' }]);
+      } else {
+        setTodaysTasks(p => p.map((t: any) => t.id === task.id ? { ...t, status: task.status } : t));
+      }
+      alert('Could not update task. Please check your connection and try again.');
+    } finally {
+      setPendingTaskId(null);
+    }
   };
 
   const fmt = (iso?: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-  const isOverdue = (d?: string) => !!d && new Date(d) < new Date(new Date().toDateString());
+  const isOverdue = (d?: string) => !!d && getDaysRemaining(d) < 0;
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -154,7 +174,7 @@ export const Dashboard: React.FC = () => {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="font-heading font-bold text-2xl text-slate-900">Project Intelligence Center</h1>
+          <h1 className="font-heading font-bold text-2xl text-slate-900">Project Intelligence DeadlineHUB</h1>
           <p className="text-sm text-slate-500 mt-0.5">Real-time velocity, deadline tracking, and module progress overview.</p>
         </div>
         <Button onClick={() => navigate('/projects')} icon={<Plus size={15} />}>New Project</Button>
@@ -192,15 +212,31 @@ export const Dashboard: React.FC = () => {
       {/* Metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard icon={Activity} value={projectsCount} label="Active Projects" iconBg="bg-brand/10 text-brand" />
-        <MetricCard icon={CheckSquare} value={tasksStats.active} label="Pending Tasks" iconBg="bg-amber-50 text-amber-800" />
+
+        {/* Pending Tasks — fully clickable card */}
+        <button
+          onClick={() => navigate('/pending-tasks')}
+          className="glass p-5 flex flex-col gap-3 text-left hover:border-brand/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-amber-50 text-amber-800">
+              <CheckSquare size={20} />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="font-heading font-bold text-2xl text-slate-900 leading-none">{tasksStats.active}</span>
+              <span className="text-xs text-slate-500 mt-0.5">Pending Tasks</span>
+            </div>
+          </div>
+          <span className="text-xs text-brand font-semibold group-hover:underline underline-offset-2">
+            See all pending tasks →
+          </span>
+        </button>
+
         <MetricCard icon={CheckSquare} value={tasksStats.completed} label="Completed" iconBg="bg-emerald-50 text-emerald-800" />
         <MetricCard icon={Clock}
           value={`${tasksStats.total > 0 ? Math.round(tasksStats.completed / tasksStats.total * 100) : 0}%`}
           label="Completion Rate" iconBg="bg-slate-100 text-slate-700" />
       </div>
-
-      {/* 7-Day Project & Subtask Notification Panel */}
-      <ProjectDeadlineNotificationPanel notifications={notifications} />
 
       {/* Widgets */}
       <div className="grid lg:grid-cols-2 gap-6">
@@ -222,9 +258,16 @@ export const Dashboard: React.FC = () => {
               <div key={task.id} className="flex items-center gap-3 py-1.5">
                 <button
                   onClick={() => toggleTask(task)}
-                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer ${task.status === 'done' ? 'bg-brand border-brand text-white' : 'border-slate-300 hover:border-brand'}`}
+                  disabled={pendingTaskId === task.id}
+                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${pendingTaskId === task.id
+                    ? 'opacity-50 cursor-wait'
+                    : 'cursor-pointer'
+                    } ${task.status === 'done' ? 'bg-brand border-brand text-white' : 'border-slate-300 hover:border-brand'}`}
                 >
-                  {task.status === 'done' && <span className="text-[10px] font-bold">✓</span>}
+                  {pendingTaskId === task.id
+                    ? <span className="text-[8px]">…</span>
+                    : task.status === 'done' && <span className="text-[10px] font-bold">✓</span>
+                  }
                 </button>
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm truncate ${task.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>{task.title}</p>
