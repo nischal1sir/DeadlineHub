@@ -50,8 +50,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Ensure status column exists if table already existed
+-- Ensure status and phone columns exist if table already existed
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active' NOT NULL;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone TEXT;
 
 -- PROJECTS
 CREATE TABLE IF NOT EXISTS public.projects (
@@ -139,17 +140,19 @@ BEGIN
     assigned_role := 'super_admin'::user_role;
   END IF;
 
-  INSERT INTO public.profiles (id, email, full_name, role, status, avatar_url)
+  INSERT INTO public.profiles (id, email, full_name, phone, role, status, avatar_url)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
+    COALESCE(NEW.raw_user_meta_data->>'phone', NEW.phone),
     assigned_role,
     'active',
     COALESCE(NEW.raw_user_meta_data->>'avatar_url', 'https://api.dicebear.com/7.x/adventurer/svg?seed=' || NEW.id)
   )
   ON CONFLICT (id) DO UPDATE SET
     full_name = EXCLUDED.full_name,
+    phone = EXCLUDED.phone,
     email = EXCLUDED.email;
 
   RETURN NEW;
@@ -302,5 +305,77 @@ CREATE POLICY "Users can manage their own notification reads"
 ON public.user_notification_reads FOR ALL TO authenticated
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
+
+-- ── Admin Notification Read States ────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.admin_notification_reads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    admin_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    log_id UUID REFERENCES public.activity_logs(id) ON DELETE CASCADE NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE NOT NULL,
+    is_cleared BOOLEAN DEFAULT FALSE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    CONSTRAINT unique_admin_log_read UNIQUE (admin_id, log_id)
+);
+
+ALTER TABLE public.admin_notification_reads ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins can manage their own notification reads" ON public.admin_notification_reads;
+CREATE POLICY "Admins can manage their own notification reads"
+ON public.admin_notification_reads FOR ALL TO authenticated
+USING (admin_id = auth.uid())
+WITH CHECK (admin_id = auth.uid());
+
+
+-- SUPABASE STORAGE: Profile Picture Bucket
+
+
+-- Create the avatars bucket (run in Supabase Dashboard → SQL Editor)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'avatars',
+  'avatars',
+  true,                                          -- publicly readable URLs
+  5242880,                                       -- 5MB max file size
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = true,
+  file_size_limit = 5242880,
+  allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+-- ── Storage RLS Policies ──
+
+-- Allow authenticated users to upload to their own folder
+DROP POLICY IF EXISTS "Users can upload their own avatar" ON storage.objects;
+CREATE POLICY "Users can upload their own avatar"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+  bucket_id = 'avatars'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow authenticated users to update (overwrite) their own files
+DROP POLICY IF EXISTS "Users can update their own avatar" ON storage.objects;
+CREATE POLICY "Users can update their own avatar"
+ON storage.objects FOR UPDATE TO authenticated
+USING (
+  bucket_id = 'avatars'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow authenticated users to delete their own files
+DROP POLICY IF EXISTS "Users can delete their own avatar" ON storage.objects;
+CREATE POLICY "Users can delete their own avatar"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+  bucket_id = 'avatars'
+  AND (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Public read access for avatar images
+DROP POLICY IF EXISTS "Public read access for avatars" ON storage.objects;
+CREATE POLICY "Public read access for avatars"
+ON storage.objects FOR SELECT TO public
+USING (bucket_id = 'avatars');
 
 -- SCHEMA COMPLETE ✓
