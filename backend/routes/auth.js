@@ -29,15 +29,14 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // Register user in Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Register user via Admin API so email is auto-confirmed immediately
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: {
-          full_name: fullName,
-          role: 'user'
-        }
+      email_confirm: true,          // ← marks email as confirmed right away
+      user_metadata: {
+        full_name: fullName,
+        role: 'user'
       }
     });
 
@@ -124,7 +123,11 @@ router.post('/login', async (req, res) => {
       user: profile
     });
   } catch (err) {
-    res.status(401).json({ message: err.message || 'Invalid email or password.' });
+    // Replace Supabase's "Email not confirmed" error with generic message
+    const errorMessage = err.message && err.message.includes('Email not confirmed') 
+      ? 'Email or password is incorrect' 
+      : (err.message || 'Email or password is incorrect');
+    res.status(401).json({ message: errorMessage });
   }
 });
 
