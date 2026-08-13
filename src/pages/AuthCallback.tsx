@@ -70,42 +70,91 @@ export const AuthCallback: React.FC = () => {
     handleCallback();
   }, []);
 
-  /* ── Sync Google profile to backend + redirect ── */
+  /* ── Sync Google profile to backend (or fallback to Supabase directly) ── */
   const syncProfileAndRedirect = async (accessToken: string) => {
     setStep('syncing');
     try {
       const searchParams = new URLSearchParams(window.location.search);
       const mode = searchParams.get('mode') || 'login';
 
-      const res = await fetch(`${BASE_URL}/auth/google-callback`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, mode }),
-      });
+      let userProfile: any = null;
+      let token = accessToken;
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || 'Failed to complete sign-in');
+      // 1. Attempt backend synchronization
+      try {
+        const res = await fetch(`${BASE_URL}/auth/google-callback`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessToken, mode }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          userProfile = data.user;
+          token = data.token || accessToken;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          if (errData.message && res.status === 400 && errData.message.includes('already registered')) {
+            throw new Error(errData.message);
+          }
+        }
+      } catch (backendErr: any) {
+        if (backendErr.message && backendErr.message.includes('already registered')) {
+          throw backendErr;
+        }
+        // Backend offline or unreachable — proceed to client-side Supabase fallback
       }
 
-      const data = await res.json();
+      // 2. Direct Supabase Client Fallback (100% Serverless & Independent of local Express server)
+      if (!userProfile) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.user) throw new Error('Google session expired. Please try signing in again.');
+
+        const user = session.user;
+
+        // Fetch or create profile directly from Supabase DB
+        const { data: dbProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (dbProfile) {
+          userProfile = dbProfile;
+        } else {
+          const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
+          const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`;
+
+          const newProf = {
+            id: user.id,
+            email: user.email || '',
+            full_name: fullName,
+            avatar_url: avatarUrl,
+            role: 'user',
+            status: 'active',
+            timezone: 'UTC',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+
+          await supabase.from('profiles').upsert(newProf, { onConflict: 'id' });
+          userProfile = newProf;
+        }
+      }
 
       // Update React AuthContext state + localStorage immediately before navigating
-      setSessionUser(data.user, data.token);
+      setSessionUser(userProfile, token);
 
       // Redirect based on role
-      const role = data.user?.role;
+      const role = userProfile?.role;
       if (role === 'admin' || role === 'super_admin') {
         navigate('/admin', { replace: true });
       } else {
         navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
-      const isFetchErr = err.name === 'TypeError' || err.message === 'Failed to fetch';
-      setErrorMsg(isFetchErr
-        ? 'Cannot connect to backend server. Please start your Node backend server (port 5000).'
-        : (err.message || 'Failed to complete sign-in.'));
+      setErrorMsg(err.message || 'Failed to complete sign-in.');
       setStep('error');
     }
   };
