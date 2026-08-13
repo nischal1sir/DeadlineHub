@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Settings as SettingsIcon, Save } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Lock } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
+import { useAuth } from '../../hooks/useAuth';
 
 export const SystemSettingsPage: React.FC = () => {
+  const { user: currentUser } = useAuth();
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+
   const [settings, setSettings] = useState<any>({
     platform_name: 'DeadlineHub Platform',
     maintenance_mode: false,
@@ -28,6 +32,10 @@ export const SystemSettingsPage: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSuperAdmin) {
+      setMsg('Only Super Admins can alter global system configuration.');
+      return;
+    }
     setSaving(true);
     try {
       await apiClient.updateSystemSettings(settings);
@@ -54,6 +62,18 @@ export const SystemSettingsPage: React.FC = () => {
         </p>
       </div>
 
+      {!isSuperAdmin && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-3 shadow-xs">
+          <Lock size={20} className="text-amber-600 shrink-0" />
+          <div>
+            <p className="font-bold text-amber-900">Read-Only View Mode</p>
+            <p className="text-amber-700 text-[11px]">
+              System configuration settings can only be altered by <strong>Super Admins</strong>. Contact a Super Admin to request setting changes.
+            </p>
+          </div>
+        </div>
+      )}
+
       {msg && (
         <div className="p-3.5 rounded-xl bg-brand-light border border-brand/30 text-brand text-xs font-semibold">
           {msg}
@@ -70,9 +90,10 @@ export const SystemSettingsPage: React.FC = () => {
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Platform Name</label>
               <input
                 type="text"
+                disabled={!isSuperAdmin}
                 value={settings.platform_name}
                 onChange={e => setSettings({ ...settings, platform_name: e.target.value })}
-                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs"
+                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -83,29 +104,36 @@ export const SystemSettingsPage: React.FC = () => {
             Security & Access Controls
           </h2>
           <div className="space-y-3 text-xs">
-            <label className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+            <label className={`flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200 ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
               <div>
-                <p className="font-bold text-slate-800">Maintenance Mode</p>
+                <p className="font-bold text-slate-800 flex items-center gap-2">
+                  Maintenance Mode
+                  {settings.maintenance_mode && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300">Active</span>
+                  )}
+                </p>
                 <p className="text-slate-500">Temporarily restrict non-admin users from logging in.</p>
               </div>
               <input
                 type="checkbox"
+                disabled={!isSuperAdmin}
                 checked={settings.maintenance_mode}
                 onChange={e => setSettings({ ...settings, maintenance_mode: e.target.checked })}
-                className="w-4 h-4 text-brand rounded"
+                className="w-4 h-4 text-brand rounded cursor-pointer disabled:cursor-not-allowed"
               />
             </label>
 
-            <label className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer">
+            <label className={`flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-200 ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
               <div>
                 <p className="font-bold text-slate-800">Public Account Registration</p>
                 <p className="text-slate-500">Allow new users to self-register from the login page.</p>
               </div>
               <input
                 type="checkbox"
+                disabled={!isSuperAdmin}
                 checked={settings.allow_public_registration}
                 onChange={e => setSettings({ ...settings, allow_public_registration: e.target.checked })}
-                className="w-4 h-4 text-brand rounded"
+                className="w-4 h-4 text-brand rounded cursor-pointer disabled:cursor-not-allowed"
               />
             </label>
           </div>
@@ -120,19 +148,21 @@ export const SystemSettingsPage: React.FC = () => {
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Session Timeout (Minutes)</label>
               <input
                 type="number"
+                disabled={!isSuperAdmin}
                 min={15}
                 max={1440}
                 value={settings.session_timeout_minutes}
                 onChange={e => setSettings({ ...settings, session_timeout_minutes: parseInt(e.target.value) || 60 })}
-                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs"
+                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Default User Role</label>
               <select
+                disabled={!isSuperAdmin}
                 value={settings.default_user_role}
                 onChange={e => setSettings({ ...settings, default_user_role: e.target.value })}
-                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs"
+                className="w-full p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-xs disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="user">Standard User</option>
                 <option value="admin">Admin User</option>
@@ -141,15 +171,17 @@ export const SystemSettingsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-slate-100 flex justify-end">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-xs transition flex items-center gap-2 cursor-pointer shadow-xs"
-          >
-            <Save size={15} /> Save Platform Settings
-          </button>
-        </div>
+        {isSuperAdmin && (
+          <div className="pt-4 border-t border-slate-100 flex justify-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-xs transition flex items-center gap-2 cursor-pointer shadow-xs"
+            >
+              <Save size={15} /> Save Platform Settings
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );
