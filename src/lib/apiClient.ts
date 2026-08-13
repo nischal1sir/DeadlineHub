@@ -17,6 +17,20 @@ export interface ActivityLog {
   created_at: string;
 }
 
+export interface AdminNotification {
+  id: string;
+  user_id?: string;
+  user_name: string;
+  user_email: string;
+  user_avatar?: string | null;
+  action: string;
+  category: 'auth' | 'user' | 'project' | 'task' | 'admin' | 'system';
+  details: string;
+  created_at: string;
+  is_read: boolean;
+  is_cleared: boolean;
+}
+
 // ── Token helpers ─────────────────────────────────────────────────────────────
 const getAccessToken  = () => localStorage.getItem('tracker_jwt');
 const setAccessToken  = (t: string) => localStorage.setItem('tracker_jwt', t);
@@ -102,12 +116,12 @@ async function request(endpoint: string, method = 'GET', body?: any, isRetry = f
 // ── API Client ────────────────────────────────────────────────────────────────
 export const apiClient = {
   // A U T H
-  register: async (email: string, password: string, fullName: string) => {
+  register: async (email: string, password: string, fullName: string, phone?: string) => {
     const res = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, fullName })
+      body: JSON.stringify({ email, password, fullName, phone })
     });
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
@@ -275,13 +289,22 @@ export const apiClient = {
     return request('/admin/settings', 'PUT', updates);
   },
 
+  updateUserProfile: async (userId: string, updates: { full_name: string; timezone?: string }) => {
+    return request(`/admin/users/${userId}/profile`, 'PUT', updates);
+  },
+
   // P R O F I L E
   getProfile: async () => {
     return request('/profile');
   },
 
   updateProfile: async (updates: { full_name: string; timezone: string; avatar_url?: string }) => {
-    const updated = await request('/profile', 'PUT', updates);
+    let updated;
+    try {
+      updated = await request('/profile', 'PUT', updates);
+    } catch (err: any) {
+      updated = await request('/admin/profile', 'PUT', updates);
+    }
     localStorage.setItem('tracker_auth_user', JSON.stringify(updated));
     return updated;
   },
@@ -310,5 +333,93 @@ export const apiClient = {
 
   restoreNotifications: async () => {
     return request('/notification-reads/restore', 'PUT');
+  },
+
+  // A D M I N  N O T I F I C A T I O N S
+  getAdminNotifications: async (page = 1, limit = 50): Promise<{
+    notifications: AdminNotification[];
+    total: number;
+    page: number;
+    limit: number;
+  }> => {
+    return request(`/admin/notifications?page=${page}&limit=${limit}`);
+  },
+
+  getAdminNotificationCount: async (): Promise<{ unread: number }> => {
+    return request('/admin/notifications/count');
+  },
+
+  markAdminNotificationsRead: async (ids: string[]) => {
+    return request('/admin/notifications/read', 'PUT', { ids });
+  },
+
+  clearAdminNotifications: async (ids: string[]) => {
+    return request('/admin/notifications/clear', 'PUT', { ids });
+  },
+
+  markAllAdminNotificationsRead: async () => {
+    return request('/admin/notifications/mark-all-read', 'PUT');
+  },
+
+  // A V A T A R  U P L O A D
+  uploadAvatar: async (file: Blob): Promise<any> => {
+    const token = localStorage.getItem('tracker_jwt');
+    const formData = new FormData();
+    formData.append('avatar', file, 'avatar.jpg');
+
+    const res = await fetch(`${BASE_URL}/upload/avatar`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: formData
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Failed to upload avatar');
+    }
+
+    const updated = await res.json();
+    localStorage.setItem('tracker_auth_user', JSON.stringify(updated));
+    return updated;
+  },
+
+  // S U P E R  A D M I N  —  U S E R  A C T I V I T Y & T R A N S F E R
+  getUserActivityTimeline: async (userId: string, page = 1, limit = 100, category?: string): Promise<{
+    user: any;
+    activity: AdminNotification[];
+    totalLogs: number;
+    page: number;
+    limit: number;
+    summary: {
+      totalProjects: number;
+      totalTasks: number;
+      completedTasks: number;
+      completionRate: number;
+      lastActivity: string | null;
+      memberSince: string;
+    };
+  }> => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (category && category !== 'all') params.set('category', category);
+    return request(`/admin/users/${userId}/activity?${params}`);
+  },
+
+  transferSuperAdmin: async (targetUserId: string): Promise<{
+    success: boolean;
+    message: string;
+    updatedProfile: any;
+  }> => {
+    return request('/admin/transfer-super-admin', 'POST', { targetUserId });
+  },
+
+  revokeUserSessions: async (userId: string): Promise<{ success: boolean; message: string }> => {
+    return request(`/admin/users/${userId}/revoke-sessions`, 'POST');
+  },
+
+  purgeActivityLogs: async (days = 30): Promise<{ success: boolean; message: string }> => {
+    return request(`/admin/activity-logs/purge?days=${days}`, 'DELETE');
   },
 };
