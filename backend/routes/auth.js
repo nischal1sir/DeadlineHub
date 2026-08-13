@@ -11,10 +11,12 @@ const ACCESS_TOKEN_TTL  = '15m';   // short-lived access token
 const REFRESH_TOKEN_TTL = '15d';   // long-lived refresh token
 
 // ── Cookie config for the refresh token ──────────────────────────────────────
+const isProd = process.env.NODE_ENV === 'production' || !!process.env.FRONTEND_URL;
+
 const REFRESH_COOKIE_OPTS = {
   httpOnly: true,                        // JS cannot read — protects against XSS
-  secure: process.env.NODE_ENV === 'production', // HTTPS-only in prod
-  sameSite: 'lax',                       // CSRF protection
+  secure: isProd,                        // MUST be true for sameSite: 'none'
+  sameSite: isProd ? 'none' : 'lax',     // 'none' required for cross-origin (Vercel -> Render)
   maxAge: 15 * 24 * 60 * 60 * 1000,    // 15 days in milliseconds
   path: '/api/auth'                      // limit cookie scope to auth endpoints
 };
@@ -156,14 +158,14 @@ router.post('/refresh', async (req, res) => {
     res.json({ token: accessToken, user: profile });
   } catch (err) {
     // Token expired or tampered — force a full login
-    res.clearCookie('refreshToken', { path: '/api/auth' });
+    res.clearCookie('refreshToken', REFRESH_COOKIE_OPTS);
     res.status(401).json({ message: 'Refresh token expired or invalid. Please log in again.' });
   }
 });
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 router.post('/logout', (req, res) => {
-  res.clearCookie('refreshToken', { path: '/api/auth' });
+  res.clearCookie('refreshToken', REFRESH_COOKIE_OPTS);
   res.json({ message: 'Logged out successfully.' });
 });
 
