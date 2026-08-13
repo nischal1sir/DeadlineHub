@@ -13,6 +13,8 @@ import subtaskRoutes from './routes/subtasks.js';
 import adminRoutes from './routes/admin.js';
 import profileRoutes from './routes/profile.js';
 import notificationReadsRoutes from './routes/notificationReads.js';
+import adminNotificationRoutes from './routes/adminNotifications.js';
+import uploadRoutes from './routes/upload.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -54,9 +56,12 @@ app.use('/api', taskRoutes);        // handles: GET /api/projects/:id/tasks, POS
 app.use('/api/tasks', taskRoutes);  // handles: GET /api/tasks/pending, PUT /api/tasks/:id, DELETE /api/tasks/:id
 app.use('/api', subtaskRoutes);           // handles: GET/POST /api/tasks/:id/subtasks
 app.use('/api/subtasks', subtaskRoutes);  // handles: PUT /api/subtasks/:id/toggle, DELETE /api/subtasks/:id
+app.use('/api/admin/notifications', adminNotificationRoutes);
+app.use('/api/admin/profile', profileRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/notification-reads', notificationReadsRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {
