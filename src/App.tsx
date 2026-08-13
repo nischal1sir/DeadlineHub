@@ -19,6 +19,8 @@ import { AdminManagementPage } from './pages/admin/AdminManagementPage';
 import { PlatformStatisticsPage } from './pages/admin/PlatformStatisticsPage';
 import { ActivityLogsPage } from './pages/admin/ActivityLogsPage';
 import { SystemSettingsPage } from './pages/admin/SystemSettingsPage';
+import { AdminProfilePage } from './pages/admin/AdminProfilePage';
+import { UserActivityPage } from './pages/admin/UserActivityPage';
 
 // Public Auth Pages
 import { Login } from './pages/Login';
@@ -146,9 +148,11 @@ export default function App() {
           >
             <Route index element={<AdminDashboard />} />
             <Route path="users" element={<UserManagementPage />} />
+            <Route path="users/:userId/activity" element={<RequireSuperAdminGuard><UserActivityPage /></RequireSuperAdminGuard>} />
             <Route path="admins" element={<RequireSuperAdminGuard><AdminManagementPage /></RequireSuperAdminGuard>} />
             <Route path="statistics" element={<PlatformStatisticsPage />} />
-            <Route path="activity-logs" element={<ActivityLogsPage />} />
+            <Route path="activity-logs" element={<RequireSuperAdminGuard><ActivityLogsPage /></RequireSuperAdminGuard>} />
+            <Route path="profile" element={<AdminProfilePage />} />
             <Route path="settings" element={<SystemSettingsPage />} />
           </Route>
 
