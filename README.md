@@ -21,26 +21,26 @@
 
 ## 📑 Table of Contents
 
-- [ Features](#-features)
-- [ Technology Stack](#%EF%B8%8F-technology-stack)
-- [ System Architecture & Folder Structure](#%EF%B8%8F-system-architecture--folder-structure)
-- [ Local Development Setup](#-local-development-setup)
+- [✨ Features](#-features)
+- [🛠️ Technology Stack](#%EF%B8%8F-technology-stack)
+- [🏗️ System Architecture & Folder Structure](#%EF%B8%8F-system-architecture--folder-structure)
+- [🚀 Local Development Setup](#-local-development-setup)
   - [Prerequisites](#prerequisites)
   - [1. Clone Repository](#1-clone-repository)
   - [2. Database Setup (Supabase PostgreSQL)](#2-database-setup-supabase-postgresql)
   - [3. Backend Configuration & Run](#3-backend-configuration--run)
   - [4. Frontend Configuration & Run](#4-frontend-configuration--run)
-- [Environment Variables Reference](#-environment-variables-reference)
-- [Production Deployment Guide](#-production-deployment-guide)
+- [🔑 Environment Variables Reference](#-environment-variables-reference)
+- [🌐 Production Deployment Guide](#-production-deployment-guide)
   - [Frontend (Vercel / Netlify)](#frontend-vercel--netlify)
   - [Backend (Render / Railway)](#backend-render--railway)
   - [Database (Supabase)](#database-supabase)
-- [ Open Source & Contributing](#-open-source--contributing)
-- [License & Author](#-license--author)
+- [🤝 Open Source & Contributing](#-open-source--contributing)
+- [📜 License & Author](#-license--author)
 
 ---
 
-##  Features
+## ✨ Features
 
 ### 👤 User Portal
 * **Intuitive Dashboard**: Overview of active projects, quick deadline widgets, and an interactive **Due Today** task checklist with optimistic UI updates.
@@ -52,7 +52,7 @@
 * **Global Pending Tasks**: Centralized pending task hub supporting multi-criteria search, project filtering, sorting, and inline completion.
 * **Profile Management**: Live profile editing with custom avatar uploads and a built-in interactive HTML5 Canvas photo cropper.
 
-###  Admin & Super Admin Control Center
+### 👑 Admin & Super Admin Control Center
 * **Role-Based Privilege System**: Strict separation between Standard Admins and Super Admins.
 * **User & Admin Management**: Administrative table for managing user roles, status toggles, delegation, and full user activity logs.
 * **Platform Analytics & SVG Visualizations**: Dependency-free custom SVG charts showing active users, system error rates, storage usage, and task volume metrics.
@@ -189,9 +189,8 @@ cd DeadlineHub
 2. Create a `.env` file in the project root based on `.env.example`:
    ```env
    VITE_API_URL=http://localhost:5000/api
-   VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
+   > **Note:** The frontend communicates with Supabase entirely through the Express backend API. No Supabase keys are needed in the frontend `.env`.
 
 3. Start the Vite React development server:
    ```bash
@@ -217,8 +216,8 @@ cd DeadlineHub
 | Variable | Description | Example / Default |
 |---|---|---|
 | `VITE_API_URL` | Backend Express API base URL | `http://localhost:5000/api` |
-| `VITE_SUPABASE_URL` | Public Supabase project URL | `https://xxxx.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | Public Supabase Anonymous Key | `eyJhbGciOi...` |
+
+> **Note:** The frontend does **not** connect to Supabase directly. All database operations go through the Express backend. Only `VITE_API_URL` is required.
 
 ---
 
