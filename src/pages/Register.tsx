@@ -84,11 +84,11 @@ export const Register: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-surface">
       <PublicNavbar />
 
       {/* Main Container Aligned with PublicNavbar max-w-7xl */}
-      <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col justify-center">
+      <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col justify-center overflow-x-hidden">
         <div className="w-full flex flex-col lg:flex-row items-stretch gap-6 xl:gap-8 min-h-[600px] lg:min-h-[640px]">
           <style>{`
             @keyframes shakeX {

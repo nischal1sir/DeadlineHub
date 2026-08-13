@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { 
-  FolderOpenDot, Users, Zap, ShieldCheck, FolderKanban, 
-  CheckCircle2, ArrowRight, BarChart3, CalendarDays, 
+import {
+  FolderOpenDot, Users, Zap, ShieldCheck, FolderKanban,
+  CheckCircle2, ArrowRight, BarChart3, CalendarDays,
   Bell, Lock, FolderTree, Target, Clock, ChevronRight,
   Star, TrendingUp, Layers
 } from 'lucide-react';
@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from './PublicNavbar';
 import { Footer } from './PublicFooter';
 
-/* ─── Animated counter hook ─── */
+/*  Animated counter hook  */
 const useCountUp = (end: number, duration: number = 2000) => {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
@@ -40,7 +40,7 @@ const useCountUp = (end: number, duration: number = 2000) => {
   return { count, ref };
 };
 
-/* ─── Components ─── */
+/*  Components  */
 const StatBox = ({ icon: Icon, value, label, suffix = '' }: { icon: any; value: string; label: string; suffix?: string }) => {
   const numericValue = parseInt(value.replace(/\D/g, '')) || 0;
   const { count, ref } = useCountUp(numericValue);
@@ -164,29 +164,29 @@ export const PublicDashboard: React.FC = () => {
       <Header />
 
       <div className="flex-1 w-full">
-        {/* ═══ HERO SECTION ═══ */}
+        {/*  HERO SECTION  */}
         <section className="relative overflow-hidden bg-white border-b border-slate-200/80">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#748469]/10 via-transparent to-transparent" />
           <div className="absolute top-20 left-10 w-72 h-72 bg-[#AAC1B1]/20 rounded-full blur-3xl" />
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-[#ABB290]/15 rounded-full blur-3xl" />
-          
+
           <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28">
             <div className="max-w-3xl mx-auto text-center space-y-8">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand/10 text-brand text-xs font-semibold border border-brand/20">
                 <FolderTree size={14} />
                 <span>Project Management</span>
               </div>
-              
+
               <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl text-slate-900 leading-tight tracking-tight">
                 Never Miss a <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#748469] to-[#FF0000]">Deadline</span> Again
               </h1>
-              
+
               <p className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed">
-                The intelligent workspace where projects, tasks, and teams converge. 
-                Track progress in real-time, predict bottlenecks before they happen, 
+                The intelligent workspace where projects, tasks, and teams converge.
+                Track progress in real-time, predict bottlenecks before they happen,
                 and ship every milestone on schedule.
               </p>
-              
+
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                 <button
                   onClick={() => navigate('/register')}
@@ -202,15 +202,15 @@ export const PublicDashboard: React.FC = () => {
                   Sign In
                 </button>
               </div>
-              
+
               <p className="text-xs text-slate-400">No credit card required • Free forever plan available</p>
             </div>
           </div>
         </section>
 
         <div className="max-w-7xl mx-auto px-6 w-full space-y-16 py-16">
-          
-          {/* ═══ STATS ═══ */}
+
+          {/*  STATS  */}
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatBox icon={Users} value="100+" label="Active Users" />
             <StatBox icon={FolderKanban} value="500+" label="Projects Tracked" />
@@ -218,7 +218,7 @@ export const PublicDashboard: React.FC = () => {
             <StatBox icon={ShieldCheck} value="99.9%" label="Uptime" />
           </section>
 
-          {/* ═══ WHAT IS + WHY ═══ */}
+          {/*  WHAT IS + WHY  */}
           <section className="grid lg:grid-cols-2 gap-8 items-center">
             <div className="space-y-5">
               <div className="inline-flex items-center gap-2 text-brand text-xs font-bold uppercase tracking-widest">
@@ -229,8 +229,8 @@ export const PublicDashboard: React.FC = () => {
                 Your Project's Command Center
               </h2>
               <p className="text-slate-500 leading-relaxed">
-                DeadlineHUB brings every project, task, and subtask into one intelligent workspace. 
-                With real-time progress tracking, smart deadline predictions, and team collaboration 
+                DeadlineHUB brings every project, task, and subtask into one intelligent workspace.
+                With real-time progress tracking, smart deadline predictions, and team collaboration
                 tools, nothing slips through the cracks unnoticed.
               </p>
               <ul className="space-y-3 pt-2">
@@ -247,7 +247,7 @@ export const PublicDashboard: React.FC = () => {
                 ))}
               </ul>
             </div>
-            
+
             {/* Mock Dashboard Preview */}
             <div className="relative">
               <div className="absolute -inset-4 bg-gradient-to-r from-[#748469]/20 to-[#AAC1B1]/20 rounded-3xl blur-2xl" />
@@ -286,7 +286,7 @@ export const PublicDashboard: React.FC = () => {
             </div>
           </section>
 
-          {/* ═══ FEATURES GRID ═══ */}
+          {/*  FEATURES GRID  */}
           <section className="space-y-6">
             <div className="text-center space-y-2 max-w-2xl mx-auto">
               <h2 className="font-heading font-bold text-2xl text-slate-900">Everything You Need</h2>
@@ -299,7 +299,7 @@ export const PublicDashboard: React.FC = () => {
             </div>
           </section>
 
-          {/* ═══ HOW IT WORKS ═══ */}
+          {/*  HOW IT WORKS  */}
           <section className="space-y-6">
             <div className="text-center space-y-2 max-w-2xl mx-auto">
               <h2 className="font-heading font-bold text-2xl text-slate-900">How It Works</h2>
@@ -308,7 +308,7 @@ export const PublicDashboard: React.FC = () => {
             <div className="grid md:grid-cols-3 gap-6 relative">
               {/* Connector line (desktop only) */}
               <div className="hidden md:block absolute top-12 left-[16.67%] right-[16.67%] h-0.5 bg-gradient-to-r from-brand/20 via-brand/40 to-brand/20" />
-              
+
               {HOW_IT_WORKS.map((item, i) => (
                 <div key={item.step} className="relative glass p-6 space-y-3 text-center hover:shadow-lg transition-all duration-300 group">
                   <div className="relative inline-flex">
@@ -328,7 +328,7 @@ export const PublicDashboard: React.FC = () => {
             </div>
           </section>
 
-          {/* ═══ TESTIMONIALS ═══ */}
+          {/*  TESTIMONIALS  */}
           <section className="space-y-6">
             <div className="text-center space-y-2 max-w-2xl mx-auto">
               <h2 className="font-heading font-bold text-2xl text-slate-900">Loved by Teams</h2>
@@ -341,14 +341,14 @@ export const PublicDashboard: React.FC = () => {
             </div>
           </section>
 
-          {/* ═══ PROJECT HIGHLIGHTS / CTA ═══ */}
+          {/*  PROJECT HIGHLIGHTS / CTA  */}
           <section className="rounded-3xl bg-gradient-to-br from-[#748469] via-[#8B9A7A] to-[#AAC1B1] text-white shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-72 h-72 bg-black/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
             <div className="absolute right-10 top-1/2 -translate-y-1/2 opacity-10 hidden lg:block">
               <FolderOpenDot size={240} />
             </div>
-            
+
             <div className="relative p-8 lg:p-12 grid lg:grid-cols-2 gap-8 items-center">
               <div className="space-y-5">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-semibold backdrop-blur-sm">
@@ -359,7 +359,7 @@ export const PublicDashboard: React.FC = () => {
                   Start Tracking Your Deadlines Today
                 </h2>
                 <p className="text-white/80 leading-relaxed max-w-md">
-                  Join hundreds of teams who've eliminated deadline anxiety. 
+                  Join hundreds of teams who've eliminated deadline anxiety.
                   Set up your first project in under 2 minutes — no credit card required.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -378,7 +378,7 @@ export const PublicDashboard: React.FC = () => {
                   </button>
                 </div>
               </div>
-              
+
               <div className="hidden lg:flex justify-center">
                 <div className="relative">
                   <div className="w-64 h-64 rounded-full border-4 border-white/20 flex items-center justify-center">
