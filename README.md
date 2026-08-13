@@ -1,7 +1,7 @@
 # ⏱️ DeadlineHub
 
 <p align="center">
-  <img src="public/logo.png" alt="DeadlineHub Logo" width="100" height="100" />
+  <img src="./src/assets/logo.png" alt="DeadlineHub Logo" width="100" height="100" />
 </p>
 
 <h3 align="center">Manage Projects & Tasks with Intelligence</h3>
@@ -21,26 +21,26 @@
 
 ## 📑 Table of Contents
 
-- [✨ Features](#-features)
-- [🛠️ Technology Stack](#%EF%B8%8F-technology-stack)
-- [🏗️ System Architecture & Folder Structure](#%EF%B8%8F-system-architecture--folder-structure)
-- [🚀 Local Development Setup](#-local-development-setup)
+- [ Features](#-features)
+- [ Technology Stack](#%EF%B8%8F-technology-stack)
+- [ System Architecture & Folder Structure](#%EF%B8%8F-system-architecture--folder-structure)
+- [ Local Development Setup](#-local-development-setup)
   - [Prerequisites](#prerequisites)
   - [1. Clone Repository](#1-clone-repository)
   - [2. Database Setup (Supabase PostgreSQL)](#2-database-setup-supabase-postgresql)
   - [3. Backend Configuration & Run](#3-backend-configuration--run)
   - [4. Frontend Configuration & Run](#4-frontend-configuration--run)
-- [🔑 Environment Variables Reference](#-environment-variables-reference)
-- [🌐 Production Deployment Guide](#-production-deployment-guide)
+- [Environment Variables Reference](#-environment-variables-reference)
+- [Production Deployment Guide](#-production-deployment-guide)
   - [Frontend (Vercel / Netlify)](#frontend-vercel--netlify)
   - [Backend (Render / Railway)](#backend-render--railway)
   - [Database (Supabase)](#database-supabase)
-- [🤝 Open Source & Contributing](#-open-source--contributing)
-- [📜 License & Author](#-license--author)
+- [ Open Source & Contributing](#-open-source--contributing)
+- [License & Author](#-license--author)
 
 ---
 
-## ✨ Features
+##  Features
 
 ### 👤 User Portal
 * **Intuitive Dashboard**: Overview of active projects, quick deadline widgets, and an interactive **Due Today** task checklist with optimistic UI updates.
@@ -52,7 +52,7 @@
 * **Global Pending Tasks**: Centralized pending task hub supporting multi-criteria search, project filtering, sorting, and inline completion.
 * **Profile Management**: Live profile editing with custom avatar uploads and a built-in interactive HTML5 Canvas photo cropper.
 
-### 👑 Admin & Super Admin Control Center
+###  Admin & Super Admin Control Center
 * **Role-Based Privilege System**: Strict separation between Standard Admins and Super Admins.
 * **User & Admin Management**: Administrative table for managing user roles, status toggles, delegation, and full user activity logs.
 * **Platform Analytics & SVG Visualizations**: Dependency-free custom SVG charts showing active users, system error rates, storage usage, and task volume metrics.
@@ -63,7 +63,7 @@
 ### 🔐 Security & Infrastructure
 * **Dual-Token Authentication**: Short-lived JWT access tokens paired with long-lived `httpOnly` secure refresh cookies for seamless cross-tab persistence.
 * **CORS & CSRF Protection**: Strict origin verification and cookie policy configuration for production deployments.
-* **Responsive Parallel Edge Design**: Frosted Fern aesthetic palette with smooth floating micro-animations, glassmorphism containers, and optimized breakpoints ($< 640\text{px}$, $640\text{px}-1023\text{px}$, $1024\text{px}-1439\text{px}$, $\ge 1440\text{px}$).
+
 
 ---
 
@@ -278,7 +278,7 @@ Found a bug or have a feature suggestion? Please open an **[Issue](https://githu
 
 Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more information.
 
-Developed with ❤️ by **[Nischal Rai](https://github.com/nischal1sir)**.
+Developed by **[Nischal Rai](https://github.com/nischal1sir)**.
 
 <p align="center">
   ⭐ If you find DeadlineHub useful, please consider giving this repository a star on GitHub! ⭐
