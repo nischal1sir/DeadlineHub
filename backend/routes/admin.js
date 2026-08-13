@@ -6,6 +6,9 @@ const router = Router();
 router.use(authenticateToken);
 router.use(requireAdmin);
 
+// Helper function to validate UUID string format
+const isUUID = (str) => typeof str === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
 // Helper function to log administrative activity
 const logAdminActivity = async (adminId, action, category, details) => {
   try {
@@ -36,10 +39,64 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// PUT /api/admin/users/:id/profile - Admin update user profile (full_name, timezone)
+router.put('/users/:id/profile', async (req, res) => {
+  const { id } = req.params;
+  const { full_name, timezone } = req.body;
+
+  if (!isUUID(id)) {
+    return res.status(400).json({ message: 'Invalid user ID specified.' });
+  }
+
+  if (!full_name || !full_name.trim()) {
+    return res.status(400).json({ message: 'Full name cannot be empty.' });
+  }
+
+  try {
+    const { data: target } = await supabase.from('profiles').select('full_name').eq('id', id).single();
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: full_name.trim(),
+        ...(timezone && { timezone }),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Sync full_name, name, and display_name with Supabase Auth user_metadata
+    try {
+      await supabase.auth.admin.updateUserById(id, {
+        user_metadata: {
+          full_name: full_name.trim(),
+          name: full_name.trim(),
+          display_name: full_name.trim()
+        }
+      });
+    } catch (authSyncErr) {
+      console.warn('Supabase Auth user_metadata sync warning:', authSyncErr.message);
+    }
+
+    await logAdminActivity(req.user.id, 'UPDATE_USER_PROFILE', 'admin', `Updated profile name for ${target?.full_name || id} to "${full_name.trim()}"`);
+
+    res.json(data);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // PUT /api/admin/users/:id/role - Update user role
 router.put('/users/:id/role', async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
+
+  if (!isUUID(id)) {
+    return res.status(400).json({ message: 'Invalid user ID specified.' });
+  }
 
   if (!['user', 'admin', 'super_admin'].includes(role)) {
     return res.status(400).json({ message: 'Invalid role specified.' });
@@ -70,6 +127,10 @@ router.put('/users/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
+  if (!isUUID(id)) {
+    return res.status(400).json({ message: 'Invalid user ID specified.' });
+  }
+
   if (!['active', 'inactive'].includes(status)) {
     return res.status(400).json({ message: 'Status must be active or inactive.' });
   }
@@ -98,6 +159,10 @@ router.put('/users/:id/status', async (req, res) => {
 router.post('/users/:id/reset-password', async (req, res) => {
   const { id } = req.params;
   const { password } = req.body;
+
+  if (!isUUID(id)) {
+    return res.status(400).json({ message: 'Invalid user ID specified.' });
+  }
 
   if (!password) return res.status(400).json({ message: 'New password is required.' });
 
@@ -150,9 +215,95 @@ router.post('/create-admin', async (req, res) => {
   }
 });
 
-// DELETE /api/admin/users/:id - Delete user account
+// GET /api/admin/users/:id/activity - Full activity timeline for a user (Super Admin only)
+router.get('/users/:id/activity', async (req, res) => {
+  const { id } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 100;
+  const offset = (page - 1) * limit;
+  const category = req.query.category;
+
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ message: 'Only Super Admins can view full user activity.' });
+  }
+
+  try {
+    const { data: targetUser, error: userError } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, role, avatar_url, status, created_at')
+      .eq('id', id)
+      .single();
+
+    if (userError || !targetUser) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    let query = supabase
+      .from('activity_logs')
+      .select('*', { count: 'exact' })
+      .eq('user_id', id)
+      .not('category', 'in', '("project","task")')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (category && category !== 'all') {
+      query = query.eq('category', category);
+    }
+
+    const { data: logs, error: logError, count } = await query;
+    if (logError) throw logError;
+
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('id, name, status, created_at')
+      .eq('owner_id', id)
+      .order('created_at', { ascending: false });
+
+    const { data: tasks } = await supabase
+      .from('tasks')
+      .select('id, title, status, project_id, created_at')
+      .eq('owner_id', id);
+
+    const totalTasks = tasks?.length || 0;
+    const completedTasks = tasks?.filter(t => t.status === 'done').length || 0;
+
+    res.json({
+      user: targetUser,
+      activity: logs || [],
+      totalLogs: count || 0,
+      page,
+      limit,
+      summary: {
+        totalProjects: projects?.length || 0,
+        totalTasks,
+        completedTasks,
+        completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
+        lastActivity: logs?.[0]?.created_at || null,
+        memberSince: targetUser.created_at,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE /api/admin/users/:id - Delete user account (Super Admin only)
 router.delete('/users/:id', async (req, res) => {
   const { id } = req.params;
+
+  // Only Super Admin can delete user accounts
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({
+      message: 'Only Super Admins have permission to delete user accounts.'
+    });
+  }
+
+  // Prevent super admin from deleting their own account
+  if (id === req.user.id) {
+    return res.status(403).json({
+      message: 'Super Admin cannot delete their own account. Transfer the Super Admin role to another admin first.'
+    });
+  }
 
   try {
     const { data: target } = await supabase.from('profiles').select('full_name, email').eq('id', id).single();
@@ -165,6 +316,78 @@ router.delete('/users/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+});
+
+// POST /api/admin/transfer-super-admin — Transfer super_admin to another admin
+router.post('/transfer-super-admin', async (req, res) => {
+  const { targetUserId } = req.body;
+
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ message: 'Only the current Super Admin can transfer this role.' });
+  }
+
+  if (!targetUserId) {
+    return res.status(400).json({ message: 'Target user ID is required.' });
+  }
+
+  if (targetUserId === req.user.id) {
+    return res.status(400).json({ message: 'You are already the Super Admin.' });
+  }
+
+  try {
+    const { data: target, error: targetError } = await supabase
+      .from('profiles')
+      .select('id, full_name, role, status')
+      .eq('id', targetUserId)
+      .single();
+
+    if (targetError || !target) {
+      return res.status(404).json({ message: 'Target user not found.' });
+    }
+
+    if (target.status === 'inactive') {
+      return res.status(400).json({ message: 'Cannot transfer Super Admin role to an inactive user.' });
+    }
+
+    if (target.role !== 'admin') {
+      return res.status(400).json({ message: 'Target user must be an Admin before receiving Super Admin role.' });
+    }
+
+    const now = new Date().toISOString();
+
+    const { error: promoteErr } = await supabase
+      .from('profiles')
+      .update({ role: 'super_admin', updated_at: now })
+      .eq('id', targetUserId);
+    if (promoteErr) throw promoteErr;
+
+    const { error: demoteErr } = await supabase
+      .from('profiles')
+      .update({ role: 'admin', updated_at: now })
+      .eq('id', req.user.id);
+    if (demoteErr) throw demoteErr;
+
+    await logAdminActivity(
+      req.user.id,
+      'TRANSFER_SUPER_ADMIN',
+      'admin',
+      `Transferred Super Admin role to ${target.full_name}`
+    );
+
+    const { data: updatedSelf } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
+
+    res.json({
+      success: true,
+      message: `Super Admin role transferred to ${target.full_name}. You are now an Admin.`,
+      updatedProfile: updatedSelf
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -273,8 +496,12 @@ router.get('/settings', async (req, res) => {
   }
 });
 
-// PUT /api/admin/settings - Update System Settings
+// PUT /api/admin/settings - Update System Settings (Super Admin only)
 router.put('/settings', async (req, res) => {
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ message: 'Only Super Admins can modify system configuration settings.' });
+  }
+
   const updates = req.body;
 
   try {
@@ -305,6 +532,70 @@ router.put('/settings', async (req, res) => {
     res.json(result);
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+});
+
+// POST /api/admin/users/:id/revoke-sessions - Force logout / revoke sessions (Super Admin only)
+router.post('/users/:id/revoke-sessions', async (req, res) => {
+  const { id } = req.params;
+
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ message: 'Only Super Admins can force session revocation.' });
+  }
+
+  try {
+    const { data: target } = await supabase.from('profiles').select('full_name, email').eq('id', id).single();
+
+    // Revoke user refresh tokens in Supabase Auth
+    try {
+      await supabase.auth.admin.signOut(id, 'global');
+    } catch (e) {
+      console.warn('Supabase global signOut warning:', e.message);
+    }
+
+    await logAdminActivity(
+      req.user.id,
+      'FORCE_REVOKE_SESSIONS',
+      'admin',
+      `Force revoked active sessions for user ${target?.full_name || id} (${target?.email || ''})`
+    );
+
+    res.json({ success: true, message: `Active sessions revoked for ${target?.full_name || 'user'}. User will be prompted to log in again.` });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// DELETE /api/admin/activity-logs/purge - Purge historical logs older than X days (Super Admin only)
+router.delete('/activity-logs/purge', async (req, res) => {
+  const days = parseInt(req.query.days, 10) || 30;
+
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ message: 'Only Super Admins can purge historical activity logs.' });
+  }
+
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffIso = cutoffDate.toISOString();
+
+    const { error } = await supabase
+      .from('activity_logs')
+      .delete()
+      .lt('created_at', cutoffIso);
+
+    if (error) throw error;
+
+    await logAdminActivity(
+      req.user.id,
+      'PURGE_ACTIVITY_LOGS',
+      'system',
+      `Purged activity logs older than ${days} days (before ${cutoffDate.toLocaleDateString()})`
+    );
+
+    res.json({ success: true, message: `Successfully purged activity logs older than ${days} days.` });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
