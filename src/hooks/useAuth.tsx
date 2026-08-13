@@ -30,11 +30,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // 100% Server-Side Session Restoration
-    // On app startup, query the server via httpOnly refresh cookie.
-    // Works identically for all users and devices visiting the website.
     const restoreSession = async () => {
       try {
+        const storedUser = localStorage.getItem('tracker_auth_user');
+        if (storedUser) {
+          try {
+            setUser(JSON.parse(storedUser));
+          } catch (e) {}
+        }
+
         const refreshed = await apiClient.tryRefreshSession();
         if (refreshed?.user) {
           if (refreshed.user.status === 'inactive') {
@@ -43,11 +47,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             setUser(refreshed.user);
           }
-        } else {
+        } else if (!storedUser) {
           setUser(null);
         }
       } catch (err) {
-        setUser(null);
+        // Keep existing session if offline or network error
       } finally {
         setLoading(false);
       }
