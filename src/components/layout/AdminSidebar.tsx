@@ -2,10 +2,11 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Users, UserCog, BarChart3,
-  History, Settings, ShieldAlert
+  Settings, ShieldAlert, History, User
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import logoImg from "../../assets/logo.png"
+import logoImg from "../../assets/logo.png";
+
 interface AdminSidebarProps {
   isMobileOpen: boolean;
   onCloseMobile: () => void;
@@ -16,7 +17,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isMobileOpen, onClos
 
   const isSuperAdmin = user?.role === 'super_admin';
 
-  const navItems = [
+  const navItems: { to: string; end: boolean; icon: any; label: string }[] = [
     { to: '/admin', end: true, icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/users', end: false, icon: Users, label: 'User Management' },
   ];
@@ -27,9 +28,18 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isMobileOpen, onClos
 
   navItems.push(
     { to: '/admin/statistics', end: false, icon: BarChart3, label: 'Platform Statistics' },
-    { to: '/admin/activity-logs', end: false, icon: History, label: 'Activity Logs' },
+  );
+
+  // Activity Logs page only available to Super Admin
+  if (isSuperAdmin) {
+    navItems.push({ to: '/admin/activity-logs', end: false, icon: History, label: 'Activity Logs' });
+  }
+
+  navItems.push(
+    { to: '/admin/profile', end: false, icon: User, label: 'My Profile' },
     { to: '/admin/settings', end: false, icon: Settings, label: 'System Settings' }
   );
+  // NOTE: Notifications are accessed via floating panel in the navbar, not sidebar
 
   const initials = user?.full_name
     ? user.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
@@ -66,7 +76,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isMobileOpen, onClos
                 Deadline<span className="text-brand">Hub</span>
               </span>
               <span className="text-[10px] font-semibold tracking-wider uppercase text-brand block">
-                ADMIN PORTAL
+                {isSuperAdmin ? 'SUPER ADMIN' : 'ADMIN PORTAL'}
               </span>
             </div>
           </div>
@@ -104,10 +114,18 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isMobileOpen, onClos
           </div>
         </div>
 
-        {/* User Footer Card */}
+        {/* User Footer Card — Clickable to Admin Profile */}
         {user && (
           <div className="px-3 py-4 border-t border-slate-200 shrink-0 bg-slate-50/60">
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white border border-slate-200 shadow-xs">
+            <NavLink
+              to="/admin/profile"
+              onClick={onCloseMobile}
+              className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-xl border transition shadow-xs cursor-pointer ${
+                isActive
+                  ? 'bg-brand-light border-brand/40 text-slate-900'
+                  : 'bg-white border-slate-200 hover:bg-slate-100/80'
+              }`}
+            >
               <div className="w-9 h-9 rounded-full bg-brand flex items-center justify-center text-xs font-bold text-white shrink-0">
                 {user.avatar_url ? (
                   <img src={user.avatar_url} alt={user.full_name} className="w-full h-full rounded-full object-cover" />
@@ -122,7 +140,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ isMobileOpen, onClos
                   {user.role.replace('_', ' ')}
                 </span>
               </div>
-            </div>
+            </NavLink>
           </div>
         )}
       </aside>
