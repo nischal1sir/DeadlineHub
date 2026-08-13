@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, Eye, EyeOff, Timer, Layers, BarChart3 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabaseClient';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import logoImg from '../assets/logo.png';
@@ -10,6 +11,8 @@ import { PublicNavbar } from '../components/layout/PublicNavbar';
 import { Footer as PublicFooter } from '../components/layout/PublicFooter';
 import { AuthHeroClock } from '../components/Clock/AuthHeroClock';
 
+const CALLBACK_URL = `${window.location.origin}/auth/callback`;
+
 export const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -17,6 +20,7 @@ export const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [shake, setShake] = useState(false);
@@ -25,6 +29,22 @@ export const Login: React.FC = () => {
     const t = setTimeout(() => setMounted(true), 30);
     return () => clearTimeout(t);
   }, []);
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${CALLBACK_URL}?mode=login` },
+      });
+      if (error) throw error;
+      // Browser will redirect to Google — nothing more to do here
+    } catch (err: any) {
+      setError(err.message || 'Google sign-in failed. Please try again.');
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,7 +126,7 @@ export const Login: React.FC = () => {
                 </span>
               </div>
 
-              <div className="mb-8">
+              <div className="mb-6">
                 <h2 className="font-heading font-bold text-2xl sm:text-3xl text-slate-900 flex items-center gap-2">
                   Welcome back
                 </h2>
@@ -172,6 +192,37 @@ export const Login: React.FC = () => {
                   {loading ? 'Signing in…' : 'Sign In'}
                 </Button>
               </form>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-400 font-medium">or continue with</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+
+              {/* Google OAuth Button */}
+              <button
+                id="google-signin-btn"
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading || loading}
+                className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium text-sm transition-all duration-200 hover:shadow-md active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {googleLoading ? (
+                  <svg className="animate-spin h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+                    <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 20-9 20-20 0-1.2-.1-2.4-.4-3.5z"/>
+                    <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+                    <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.3 26.8 36 24 36c-5.2 0-9.7-3.1-11.3-7.5L6.1 33.6C9.5 39.6 16.3 44 24 44z"/>
+                    <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.4 4.3-4.4 5.7l.1-.1 6.2 5.2C36.9 40.9 44 35.5 44 24c0-1.2-.1-2.4-.4-3.5z"/>
+                  </svg>
+                )}
+                {googleLoading ? 'Redirecting to Google…' : 'Continue with Google'}
+              </button>
 
               <p className="mt-8 text-center text-sm text-slate-500">
                 Don't have an account?{' '}

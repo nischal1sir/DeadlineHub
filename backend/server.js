@@ -3,7 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config(); // Reloaded auth.js google-callback mode check
 
 import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';

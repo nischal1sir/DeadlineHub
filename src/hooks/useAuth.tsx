@@ -16,6 +16,7 @@ export interface UserProfile {
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
+  setSessionUser: (user: UserProfile, token: string) => void;
   login: (email: string, pass: string) => Promise<void>;
   register: (email: string, pass: string, name: string, phone?: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -61,6 +62,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     restoreSession();
   }, []);
+
+  const setSessionUser = (userProfile: UserProfile, token: string) => {
+    localStorage.setItem('tracker_jwt', token);
+    localStorage.setItem('tracker_auth_user', JSON.stringify(userProfile));
+    setUser(userProfile);
+  };
 
   const login = async (email: string, pass: string) => {
     setLoading(true);
@@ -132,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, forgotPassword, resetPassword, updateProfile, updateAvatar }}>
+    <AuthContext.Provider value={{ user, loading, setSessionUser, login, register, logout, forgotPassword, resetPassword, updateProfile, updateAvatar }}>
       {children}
     </AuthContext.Provider>
   );

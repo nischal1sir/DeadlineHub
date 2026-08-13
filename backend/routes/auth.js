@@ -128,7 +128,11 @@ router.post('/register', async (req, res) => {
     res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
     res.status(201).json({ token: accessToken, user: sessionProfile });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    const msg = err.message || '';
+    if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists') || msg.includes('duplicate key')) {
+      return res.status(400).json({ message: 'An account with this email address already exists. Please sign in instead.' });
+    }
+    res.status(400).json({ message: msg || 'Registration failed.' });
   }
 });
 
@@ -221,10 +225,14 @@ router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: 'Email is required.' });
 
+  // Build the redirect URL — points to the /reset-password page on the frontend
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const redirectTo  = `${frontendUrl.replace(/\/$/, '')}/reset-password`;
+
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
-    res.json({ message: 'Password reset request processed. Check your inbox.' });
+    res.json({ message: 'Password reset link sent. Check your inbox.' });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -249,6 +257,104 @@ router.post('/reset-password', async (req, res) => {
 
     await logActivity(decoded.id, 'RESET_PASSWORD', 'auth', 'Password updated successfully');
     res.json({ message: 'Password updated successfully.' });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// ── Google OAuth Callback ─────────────────────────────────────────────────────
+// Called by the frontend /auth/callback page after Google OAuth redirect.
+// Verifies the Supabase access token, syncs the user profile, returns our JWT.
+router.post('/google-callback', async (req, res) => {
+  const { accessToken, phone, mode } = req.body;
+  if (!accessToken) return res.status(400).json({ message: 'Access token is required.' });
+
+  try {
+    // Verify the Supabase access token and get the user
+    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
+    if (userError || !user) throw new Error('Invalid or expired Google token.');
+
+    // If user attempted Google Sign-Up from Register page, but account already existed
+    if (mode === 'signup' && user.created_at) {
+      const userCreatedAt = new Date(user.created_at).getTime();
+      const isBrandNewUser = (Date.now() - userCreatedAt) < 30000; // 30s window
+      if (!isBrandNewUser) {
+        return res.status(400).json({
+          message: 'An account is already registered under this email. Please sign in instead.'
+        });
+      }
+    }
+
+    const fullName = user.user_metadata?.full_name ||
+                     user.user_metadata?.name ||
+                     user.email?.split('@')[0] || 'User';
+    const avatarUrl = user.user_metadata?.avatar_url ||
+                      user.user_metadata?.picture ||
+                      `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`;
+
+    // Check if profile exists
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    let profile;
+
+    if (existingProfile) {
+      // Existing profile — update fields cleanly
+      const updates = {
+        full_name: existingProfile.full_name || fullName,
+        avatar_url: existingProfile.avatar_url || avatarUrl,
+        updated_at: new Date().toISOString()
+      };
+      if (phone) updates.phone = phone;
+
+      const { data: updated, error: updateErr } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id)
+        .select()
+        .single();
+      if (updateErr) throw updateErr;
+      profile = updated;
+    } else {
+      // New profile — upsert safely in case database trigger already created it
+      const newProfile = {
+        id: user.id,
+        email: user.email,
+        full_name: fullName,
+        phone: phone || null,
+        avatar_url: avatarUrl,
+        role: 'user',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: created, error: createErr } = await supabase
+        .from('profiles')
+        .upsert(newProfile, { onConflict: 'id' })
+        .select()
+        .single();
+      if (createErr) throw createErr;
+      profile = created;
+
+      await logActivity(profile.id, 'GOOGLE_OAUTH_REGISTER', 'auth',
+        `New account via Google OAuth: ${fullName} (${user.email})`, req);
+    }
+
+    if (profile.status === 'inactive') {
+      return res.status(403).json({ message: 'This account has been deactivated. Contact an administrator.' });
+    }
+
+    const { accessToken: jwtAccess, refreshToken } = makeTokens(profile);
+
+    await logActivity(profile.id, 'GOOGLE_OAUTH_LOGIN', 'auth',
+      `Signed in via Google OAuth as ${profile.role.toUpperCase()}`, req);
+
+    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
+    res.json({ token: jwtAccess, user: profile });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

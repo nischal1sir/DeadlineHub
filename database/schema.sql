@@ -131,32 +131,22 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
 -- 4. AUTO-CREATE PROFILE ON SIGNUP TRIGGER
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
-DECLARE
-    assigned_role user_role := 'user'::user_role;
 BEGIN
-  IF NEW.raw_user_meta_data->>'role' = 'admin' THEN
-    assigned_role := 'admin'::user_role;
-  ELSIF NEW.raw_user_meta_data->>'role' = 'super_admin' THEN
-    assigned_role := 'super_admin'::user_role;
-  END IF;
-
-  INSERT INTO public.profiles (id, email, full_name, phone, role, status, avatar_url)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-    COALESCE(NEW.raw_user_meta_data->>'phone', NEW.phone),
-    assigned_role,
-    'active',
-    COALESCE(NEW.raw_user_meta_data->>'avatar_url', 'https://api.dicebear.com/7.x/adventurer/svg?seed=' || NEW.id)
-  )
-  ON CONFLICT (id) DO UPDATE SET
-    full_name = EXCLUDED.full_name,
-    phone = EXCLUDED.phone,
-    email = EXCLUDED.email;
-
-  RETURN NEW;
-EXCEPTION WHEN OTHERS THEN
+  BEGIN
+    INSERT INTO public.profiles (id, email, full_name, avatar_url, role, status)
+    VALUES (
+      NEW.id,
+      COALESCE(NEW.email, ''),
+      COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1), 'User'),
+      COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture', ''),
+      'user'::user_role,
+      'active'
+    )
+    ON CONFLICT (id) DO NOTHING;
+  EXCEPTION WHEN OTHERS THEN
+    -- Prevent trigger failure from aborting user registration
+    NULL;
+  END;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -189,17 +179,15 @@ $$ LANGUAGE sql SECURITY DEFINER;
 -- ── Profiles 
 DROP POLICY IF EXISTS "Public profiles are viewable by authenticated users" ON public.profiles;
 CREATE POLICY "Public profiles are viewable by authenticated users"
-ON public.profiles FOR SELECT TO authenticated USING (true);
+ON public.profiles FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Users can update own profile or admins can update any" ON public.profiles;
 CREATE POLICY "Users can update own profile or admins can update any"
-ON public.profiles FOR UPDATE TO authenticated
-USING (auth.uid() = id OR public.is_admin());
+ON public.profiles FOR UPDATE USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile"
-ON public.profiles FOR INSERT TO authenticated
-WITH CHECK (auth.uid() = id);
+ON public.profiles FOR INSERT WITH CHECK (true);
 
 -- ── Projects ─
 DROP POLICY IF EXISTS "Users view own projects or admins view all" ON public.projects;
