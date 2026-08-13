@@ -1,9 +1,27 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { User, Lock, Mail, Clock, Shield } from 'lucide-react';
+import { ImageCropModal } from '../components/ui/ImageCropModal';
+import { User, Lock, Mail, Clock, Shield, Camera, CheckCircle2, AlertCircle, Save, Pencil } from 'lucide-react';
+import { Button } from '../components/ui/Button';
 
 export const Profile: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateProfile, updateAvatar } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [fullName, setFullName] = useState(user?.full_name || '');
+  const [saving, setSaving] = useState(false);
+
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user) {
+      setFullName(user.full_name || '');
+    }
+  }, [user]);
 
   if (!user) {
     return (
@@ -29,29 +47,142 @@ export const Profile: React.FC = () => {
   const firstName = nameParts[0] || '';
   const lastName = nameParts.slice(1).join(' ') || '';
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Please select a valid image file (JPEG, PNG, WebP, GIF)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg('Image size must be less than 5MB');
+      return;
+    }
+
+    setErrorMsg(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedImage(reader.result as string);
+      setCropModalOpen(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCropComplete = async (blob: Blob) => {
+    setUploading(true);
+    setErrorMsg(null);
+    try {
+      await updateAvatar(blob);
+      setCropModalOpen(false);
+      setSuccessMsg('Profile picture updated successfully!');
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to update profile photo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSaveName = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!fullName.trim()) {
+      setErrorMsg('Full name cannot be empty');
+      return;
+    }
+
+    setSaving(true);
+    setErrorMsg(null);
+    try {
+      await updateProfile(fullName.trim(), user.timezone || 'UTC');
+      setIsEditing(false);
+      setSuccessMsg('Name updated successfully!');
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to save name');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="p-6 max-w-4xl mx-auto animate-fade-in">
-      <div className="mb-6">
-        <h1 className="font-heading font-bold text-2xl text-slate-900">My Profile</h1>
-        <p className="text-sm text-slate-500 mt-1">View your account information</p>
+    <div className="p-6 max-w-4xl mx-auto animate-fade-in space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-heading font-bold text-2xl text-slate-900">My Profile</h1>
+          <p className="text-sm text-slate-500 mt-1">View your account information and manage your profile</p>
+        </div>
+
+        {!isEditing ? (
+          <Button variant="outline" onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 text-xs">
+            <Pencil size={14} /> Edit Name
+          </Button>
+        ) : (
+          <Button variant="secondary" onClick={() => {
+            setIsEditing(false);
+            setFullName(user.full_name || '');
+          }} className="text-xs">
+            Cancel
+          </Button>
+        )}
       </div>
 
-      {/* Profile Header Card */}
-      <div className="rounded-2xl bg-gradient-to-r from-brand-light via-white to-surface border border-brand/20 p-6 mb-6 flex items-center gap-5 shadow-xs">
-        <div className="w-16 h-16 rounded-2xl bg-brand flex items-center justify-center text-white text-2xl font-bold shrink-0 shadow-md">
-          {user.avatar_url ? (
-            <img src={user.avatar_url} alt={user.full_name} className="w-full h-full rounded-2xl object-cover" />
-          ) : (
-            initials
-          )}
+      {/* Success Notification */}
+      {successMsg && (
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-2 animate-fade-in">
+          <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+          <span>{successMsg}</span>
         </div>
+      )}
+
+      {/* Error Notification */}
+      {errorMsg && (
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center gap-2 animate-fade-in">
+          <AlertCircle size={18} className="text-rose-600 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* Profile Header Card */}
+      <div className="rounded-2xl bg-gradient-to-r from-brand-light via-white to-surface border border-brand/20 p-6 flex items-center gap-5 shadow-xs">
+        {/* Avatar with Camera Crop Overlay */}
+        <div className="relative group shrink-0">
+          <div className="w-16 h-16 rounded-2xl bg-brand flex items-center justify-center text-white text-2xl font-bold shadow-md overflow-hidden ring-2 ring-white">
+            {user.avatar_url ? (
+              <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
+            ) : (
+              initials
+            )}
+          </div>
+
+          {/* Camera overlay button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="absolute inset-0 rounded-2xl bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center cursor-pointer backdrop-blur-xs text-white"
+            title="Upload and crop photo"
+          >
+            <Camera size={20} />
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+        </div>
+
         <div>
           <h2 className="font-heading font-bold text-xl text-slate-900">{user.full_name}</h2>
           <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5">
             <Mail size={13} className="text-brand" />
             {user.email}
           </p>
-          <span className={`inline-flex items-center gap-1 mt-1.5 px-2.5 rounded-full text-[11px] font-bold uppercase ${
+          <span className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase ${
             user.role === 'super_admin'
               ? 'bg-amber-50 text-amber-800 border border-amber-200'
               : user.role === 'admin'
@@ -65,33 +196,47 @@ export const Profile: React.FC = () => {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Personal Details — Read Only */}
+        {/* Personal Details */}
         <div className="rounded-2xl bg-white border border-slate-200 p-6 shadow-xs">
           <h2 className="flex items-center gap-2 font-semibold text-slate-800 mb-5 text-sm border-b border-slate-100 pb-3">
             <User size={16} className="text-brand" /> Personal Details
           </h2>
 
-          <div className="space-y-4 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">First Name</label>
-                <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
-                  {firstName || '—'}
+          <form onSubmit={handleSaveName} className="space-y-4 text-xs">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Full Name</label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-900 bg-white border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition"
+                  placeholder="Enter full name"
+                  required
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">First Name</label>
+                    <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
+                      {firstName || '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Last Name</label>
+                    <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
+                      {lastName || '—'}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Last Name</label>
-                <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
-                  {lastName || '—'}
-                </div>
-              </div>
+              )}
             </div>
 
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1">
-                <Mail size={10} /> Email Address
+                <Mail size={10} /> Email Address (Read-Only)
               </label>
-              <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
+              <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-500 bg-slate-100 border border-slate-200 cursor-not-allowed">
                 {user.email}
               </div>
             </div>
@@ -101,7 +246,7 @@ export const Profile: React.FC = () => {
                 <Clock size={10} /> Timezone
               </label>
               <div className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-700 bg-slate-50 border border-slate-200">
-                UTC — Coordinated Universal Time
+                {user.timezone || 'UTC — Coordinated Universal Time'}
               </div>
             </div>
 
@@ -111,12 +256,21 @@ export const Profile: React.FC = () => {
                 {new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
               </div>
             </div>
-          </div>
 
-          <p className="mt-4 text-[11px] text-slate-400 flex items-center gap-1.5">
-            <Shield size={11} className="text-brand" />
-            Profile changes must be requested through an administrator.
-          </p>
+            {isEditing && (
+              <div className="pt-2 flex justify-end">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={saving}
+                  className="flex items-center gap-2"
+                >
+                  <Save size={16} />
+                  {saving ? 'Saving...' : 'Save Name'}
+                </Button>
+              </div>
+            )}
+          </form>
         </div>
 
         {/* Password — Info Panel */}
@@ -145,6 +299,17 @@ export const Profile: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Crop Modal */}
+      {selectedImage && (
+        <ImageCropModal
+          isOpen={cropModalOpen}
+          imageSrc={selectedImage}
+          onClose={() => setCropModalOpen(false)}
+          onCropComplete={handleCropComplete}
+          isUploading={uploading}
+        />
+      )}
     </div>
   );
 };
