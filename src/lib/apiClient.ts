@@ -22,10 +22,9 @@ const getAccessToken  = () => localStorage.getItem('tracker_jwt');
 const setAccessToken  = (t: string) => localStorage.setItem('tracker_jwt', t);
 const clearAccessToken = () => localStorage.removeItem('tracker_jwt');
 
-// Prevent multiple simultaneous refresh calls
-let refreshPromise: Promise<string | null> | null = null;
+let refreshPromise: Promise<{ token: string; user: any } | null> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
+async function refreshAccessToken(): Promise<{ token: string; user: any } | null> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
@@ -37,7 +36,6 @@ async function refreshAccessToken(): Promise<string | null> {
       });
 
       if (!res.ok) {
-        // Refresh token expired or invalid — clear local state and force re-login
         clearAccessToken();
         localStorage.removeItem('tracker_auth_user');
         return null;
@@ -46,7 +44,7 @@ async function refreshAccessToken(): Promise<string | null> {
       const data = await res.json();
       setAccessToken(data.token);
       localStorage.setItem('tracker_auth_user', JSON.stringify(data.user));
-      return data.token as string;
+      return { token: data.token as string, user: data.user };
     } catch {
       return null;
     } finally {
@@ -75,8 +73,8 @@ async function request(endpoint: string, method = 'GET', body?: any, isRetry = f
 
     // If access token expired and we haven't retried yet, try to refresh
     if (response.status === 401 && !isRetry) {
-      const newToken = await refreshAccessToken();
-      if (newToken) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed?.token) {
         // Retry original request with the new access token
         return request(endpoint, method, body, true);
       } else {
@@ -148,12 +146,9 @@ export const apiClient = {
     localStorage.removeItem('tracker_auth_user');
   },
 
-  // Attempt a silent refresh on app startup (restores session from cookie)
+  // Attempt a silent refresh on app startup (restores session 100% server-side via cookie)
   tryRefreshSession: async (): Promise<{ token: string; user: any } | null> => {
-    const newToken = await refreshAccessToken();
-    if (!newToken) return null;
-    const user = localStorage.getItem('tracker_auth_user');
-    return { token: newToken, user: user ? JSON.parse(user) : null };
+    return refreshAccessToken();
   },
 
   forgotPassword: async (email: string) => {

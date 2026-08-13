@@ -30,32 +30,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // On startup: attempt a silent token refresh using the httpOnly cookie.
-    // This restores the session even after the short-lived access token (15m)
-    // has expired, as long as the 15-day refresh token cookie is still valid.
+    // 100% Server-Side Session Restoration
+    // On app startup, query the server via httpOnly refresh cookie.
+    // Works identically for all users and devices visiting the website.
     const restoreSession = async () => {
       try {
-        const stored = localStorage.getItem('tracker_auth_user');
-
-        // Try to get a fresh access token via the refresh cookie
         const refreshed = await apiClient.tryRefreshSession();
-
-        if (refreshed && refreshed.user) {
-          // Refresh succeeded — use the up-to-date profile from the server
+        if (refreshed?.user) {
           if (refreshed.user.status === 'inactive') {
             await apiClient.logout();
             setUser(null);
           } else {
             setUser(refreshed.user);
           }
-        } else if (stored) {
-          // No valid refresh token — clear stale localStorage
-          localStorage.removeItem('tracker_auth_user');
-          localStorage.removeItem('tracker_jwt');
+        } else {
           setUser(null);
         }
       } catch (err) {
-        console.error('Failed to restore session', err);
+        setUser(null);
       } finally {
         setLoading(false);
       }
