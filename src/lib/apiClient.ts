@@ -1,4 +1,8 @@
 // API Client — Production Mode (Express + Supabase Backend)
+// Implements silent token refresh: when the access token expires (401),
+// the client automatically calls /auth/refresh (which reads the httpOnly
+// refresh-token cookie) to get a new access token, then retries the
+// original request — completely transparent to all callers.
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -13,20 +17,79 @@ export interface ActivityLog {
   created_at: string;
 }
 
-async function request(endpoint: string, method = 'GET', body?: any) {
-  const token = localStorage.getItem('tracker_jwt');
+// ── Token helpers ─────────────────────────────────────────────────────────────
+const getAccessToken  = () => localStorage.getItem('tracker_jwt');
+const setAccessToken  = (t: string) => localStorage.setItem('tracker_jwt', t);
+const clearAccessToken = () => localStorage.removeItem('tracker_jwt');
+
+// Prevent multiple simultaneous refresh calls
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',   // send the httpOnly refresh-token cookie
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!res.ok) {
+        // Refresh token expired or invalid — clear local state and force re-login
+        clearAccessToken();
+        localStorage.removeItem('tracker_auth_user');
+        return null;
+      }
+
+      const data = await res.json();
+      setAccessToken(data.token);
+      localStorage.setItem('tracker_auth_user', JSON.stringify(data.user));
+      return data.token as string;
+    } catch {
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+// ── Core request with auto-refresh ───────────────────────────────────────────
+async function request(endpoint: string, method = 'GET', body?: any, isRetry = false): Promise<any> {
+  const token = getAccessToken();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const config: RequestInit = { method, headers };
+  const config: RequestInit = {
+    method,
+    headers,
+    credentials: 'include'   // always send cookies so /auth/refresh works
+  };
   if (body) config.body = JSON.stringify(body);
 
   try {
     const response = await fetch(`${BASE_URL}${endpoint}`, config);
+
+    // If access token expired and we haven't retried yet, try to refresh
+    if (response.status === 401 && !isRetry) {
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        // Retry original request with the new access token
+        return request(endpoint, method, body, true);
+      } else {
+        // No valid refresh token — surface the 401 so UI can redirect to login
+        throw new Error('Session expired. Please log in again.');
+      }
+    }
+
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
       throw new Error(errData.message || 'Something went wrong');
     }
+
     return await response.json();
   } catch (err: any) {
     if (err.name === 'TypeError' && (err.message === 'Failed to fetch' || err.message.includes('fetch'))) {
@@ -38,25 +101,59 @@ async function request(endpoint: string, method = 'GET', body?: any) {
   }
 }
 
+// ── API Client ────────────────────────────────────────────────────────────────
 export const apiClient = {
   // A U T H
   register: async (email: string, password: string, fullName: string) => {
-    const res = await request('/auth/register', 'POST', { email, password, fullName });
-    localStorage.setItem('tracker_jwt', res.token);
-    localStorage.setItem('tracker_auth_user', JSON.stringify(res.user));
-    return res.user;
+    const res = await fetch(`${BASE_URL}/auth/register`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, fullName })
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.message || 'Registration failed');
+    }
+    const data = await res.json();
+    setAccessToken(data.token);
+    localStorage.setItem('tracker_auth_user', JSON.stringify(data.user));
+    return data.user;
   },
 
   login: async (email: string, password: string) => {
-    const res = await request('/auth/login', 'POST', { email, password });
-    localStorage.setItem('tracker_jwt', res.token);
-    localStorage.setItem('tracker_auth_user', JSON.stringify(res.user));
-    return res.user;
+    const res = await fetch(`${BASE_URL}/auth/login`, {
+      method: 'POST',
+      credentials: 'include',   // lets the server set the httpOnly cookie
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.message || 'Login failed');
+    }
+    const data = await res.json();
+    setAccessToken(data.token);
+    localStorage.setItem('tracker_auth_user', JSON.stringify(data.user));
+    return data.user;
   },
 
   logout: async () => {
+    // Tell the server to clear the httpOnly refresh-token cookie
+    await fetch(`${BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    }).catch(() => {});
+    clearAccessToken();
     localStorage.removeItem('tracker_auth_user');
-    localStorage.removeItem('tracker_jwt');
+  },
+
+  // Attempt a silent refresh on app startup (restores session from cookie)
+  tryRefreshSession: async (): Promise<{ token: string; user: any } | null> => {
+    const newToken = await refreshAccessToken();
+    if (!newToken) return null;
+    const user = localStorage.getItem('tracker_auth_user');
+    return { token: newToken, user: user ? JSON.parse(user) : null };
   },
 
   forgotPassword: async (email: string) => {

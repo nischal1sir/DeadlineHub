@@ -3,9 +3,30 @@ import jwt from 'jsonwebtoken';
 import { supabase } from '../supabaseClient.js';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'project_intelligence_secret_jwt_token_2026';
 
-// Helper function to log activity
+const ACCESS_SECRET  = process.env.JWT_SECRET         || 'project_intelligence_secret_jwt_token_2026';
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'project_intelligence_refresh_secret_2026';
+
+const ACCESS_TOKEN_TTL  = '15m';   // short-lived access token
+const REFRESH_TOKEN_TTL = '15d';   // long-lived refresh token
+
+// ── Cookie config for the refresh token ──────────────────────────────────────
+const REFRESH_COOKIE_OPTS = {
+  httpOnly: true,                        // JS cannot read — protects against XSS
+  secure: process.env.NODE_ENV === 'production', // HTTPS-only in prod
+  sameSite: 'lax',                       // CSRF protection
+  maxAge: 15 * 24 * 60 * 60 * 1000,    // 15 days in milliseconds
+  path: '/api/auth'                      // limit cookie scope to auth endpoints
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const makeTokens = (profile) => {
+  const payload = { id: profile.id, email: profile.email, role: profile.role };
+  const accessToken  = jwt.sign(payload, ACCESS_SECRET,  { expiresIn: ACCESS_TOKEN_TTL });
+  const refreshToken = jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
+  return { accessToken, refreshToken };
+};
+
 const logActivity = async (userId, action, category, details) => {
   try {
     await supabase.from('activity_logs').insert([{
@@ -20,7 +41,7 @@ const logActivity = async (userId, action, category, details) => {
   }
 };
 
-// Register Route
+// ── Register ──────────────────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   const { email, password, fullName } = req.body;
 
@@ -29,15 +50,11 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // Register user via Admin API so email is auto-confirmed immediately
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,          // ← marks email as confirmed right away
-      user_metadata: {
-        full_name: fullName,
-        role: 'user'
-      }
+      email_confirm: true,
+      user_metadata: { full_name: fullName, role: 'user' }
     });
 
     if (authError) throw authError;
@@ -45,7 +62,6 @@ router.post('/register', async (req, res) => {
     const user = authData.user;
     if (!user) throw new Error('User creation failed.');
 
-    // Fetch created profile
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
@@ -53,31 +69,21 @@ router.post('/register', async (req, res) => {
       .single();
 
     const sessionProfile = profile || {
-      id: user.id,
-      email,
-      full_name: fullName,
-      role: 'user',
-      status: 'active'
+      id: user.id, email, full_name: fullName, role: 'user', status: 'active'
     };
 
-    const token = jwt.sign(
-      { id: sessionProfile.id, email: sessionProfile.email, role: sessionProfile.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const { accessToken, refreshToken } = makeTokens(sessionProfile);
 
     await logActivity(sessionProfile.id, 'USER_REGISTER', 'auth', `Registered new account: ${fullName}`);
 
-    res.status(201).json({
-      token,
-      user: sessionProfile
-    });
+    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
+    res.status(201).json({ token: accessToken, user: sessionProfile });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
 
-// Login Route
+// ── Login ─────────────────────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -86,52 +92,82 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
     if (authError) throw authError;
 
-    const authUser = authData.user;
-
-    // Fetch user profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', authUser.id)
+      .eq('id', authData.user.id)
       .single();
 
-    if (profileError || !profile) {
-      throw new Error('User profile record not found.');
-    }
+    if (profileError || !profile) throw new Error('User profile record not found.');
 
     if (profile.status === 'inactive') {
       return res.status(403).json({ message: 'This account has been deactivated. Please contact the administrator.' });
     }
 
-    const token = jwt.sign(
-      { id: profile.id, email: profile.email, role: profile.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const { accessToken, refreshToken } = makeTokens(profile);
 
     await logActivity(profile.id, 'USER_LOGIN', 'auth', `User logged in as ${profile.role.toUpperCase()}`);
 
-    res.json({
-      token,
-      user: profile
-    });
+    res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
+    res.json({ token: accessToken, user: profile });
   } catch (err) {
-    // Replace Supabase's "Email not confirmed" error with generic message
-    const errorMessage = err.message && err.message.includes('Email not confirmed') 
-      ? 'Email or password is incorrect' 
+    const errorMessage = err.message && err.message.includes('Email not confirmed')
+      ? 'Email or password is incorrect'
       : (err.message || 'Email or password is incorrect');
     res.status(401).json({ message: errorMessage });
   }
 });
 
-// Forgot Password Route
+// ── Refresh Token ─────────────────────────────────────────────────────────────
+// Called silently by the frontend when the access token expires (401).
+// Validates the httpOnly refresh cookie and issues a fresh pair.
+router.post('/refresh', async (req, res) => {
+  const token = req.cookies?.refreshToken;
+
+  if (!token) {
+    return res.status(401).json({ message: 'No refresh token. Please log in again.' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, REFRESH_SECRET);
+
+    // Re-fetch profile to catch any role/status changes since token was issued
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', decoded.id)
+      .single();
+
+    if (error || !profile) {
+      return res.status(401).json({ message: 'User session invalid.' });
+    }
+
+    if (profile.status === 'inactive') {
+      return res.status(403).json({ message: 'This account has been deactivated.' });
+    }
+
+    const { accessToken, refreshToken: newRefreshToken } = makeTokens(profile);
+
+    // Rotate the refresh token — issues a brand-new cookie each time
+    res.cookie('refreshToken', newRefreshToken, REFRESH_COOKIE_OPTS);
+    res.json({ token: accessToken, user: profile });
+  } catch (err) {
+    // Token expired or tampered — force a full login
+    res.clearCookie('refreshToken', { path: '/api/auth' });
+    res.status(401).json({ message: 'Refresh token expired or invalid. Please log in again.' });
+  }
+});
+
+// ── Logout ────────────────────────────────────────────────────────────────────
+router.post('/logout', (req, res) => {
+  res.clearCookie('refreshToken', { path: '/api/auth' });
+  res.json({ message: 'Logged out successfully.' });
+});
+
+// ── Forgot Password ───────────────────────────────────────────────────────────
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: 'Email is required.' });
@@ -139,14 +175,13 @@ router.post('/forgot-password', async (req, res) => {
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) throw error;
-
     res.json({ message: 'Password reset request processed. Check your inbox.' });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
 
-// Reset Password Route
+// ── Reset Password ────────────────────────────────────────────────────────────
 router.post('/reset-password', async (req, res) => {
   const { password } = req.body;
   if (!password) return res.status(400).json({ message: 'New password is required.' });
@@ -159,7 +194,7 @@ router.post('/reset-password', async (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, ACCESS_SECRET);
     const { error } = await supabase.auth.admin.updateUserById(decoded.id, { password });
     if (error) throw error;
 
@@ -171,4 +206,3 @@ router.post('/reset-password', async (req, res) => {
 });
 
 export default router;
-

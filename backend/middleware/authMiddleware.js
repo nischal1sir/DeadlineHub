@@ -10,6 +10,7 @@ export const authenticateToken = async (req, res, next) => {
   }
 
   try {
+    // Verify against the access token secret (short-lived, 15m)
     const secret = process.env.JWT_SECRET || 'project_intelligence_secret_jwt_token_2026';
     const decoded = jwt.verify(token, secret);
     

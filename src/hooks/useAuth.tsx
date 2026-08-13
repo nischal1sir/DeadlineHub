@@ -30,26 +30,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const fetchUser = () => {
+    // On startup: attempt a silent token refresh using the httpOnly cookie.
+    // This restores the session even after the short-lived access token (15m)
+    // has expired, as long as the 15-day refresh token cookie is still valid.
+    const restoreSession = async () => {
       try {
         const stored = localStorage.getItem('tracker_auth_user');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed.status === 'inactive') {
-            localStorage.removeItem('tracker_auth_user');
-            localStorage.removeItem('tracker_jwt');
+
+        // Try to get a fresh access token via the refresh cookie
+        const refreshed = await apiClient.tryRefreshSession();
+
+        if (refreshed && refreshed.user) {
+          // Refresh succeeded — use the up-to-date profile from the server
+          if (refreshed.user.status === 'inactive') {
+            await apiClient.logout();
             setUser(null);
           } else {
-            setUser(parsed);
+            setUser(refreshed.user);
           }
+        } else if (stored) {
+          // No valid refresh token — clear stale localStorage
+          localStorage.removeItem('tracker_auth_user');
+          localStorage.removeItem('tracker_jwt');
+          setUser(null);
         }
       } catch (err) {
-        console.error('Failed reading user session', err);
+        console.error('Failed to restore session', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchUser();
+
+    restoreSession();
   }, []);
 
   const login = async (email: string, pass: string) => {
