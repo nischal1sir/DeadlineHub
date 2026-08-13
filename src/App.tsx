@@ -104,6 +104,18 @@ const UserLayout: React.FC = () => {
   );
 };
 
+/* ── OAuth Hash Catch Fallback ── */
+const RootOAuthCatch: React.FC = () => {
+  React.useEffect(() => {
+    if (window.location.hash.includes('access_token=') || window.location.hash.includes('error=')) {
+      const target = `/auth/callback${window.location.search}${window.location.hash}`;
+      window.location.href = target;
+    }
+  }, []);
+
+  return <PublicDashboard />;
+};
+
 /* ── Root Application Router */
 export default function App() {
   return (
@@ -111,7 +123,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* Public Landing + Auth Routes */}
-          <Route path="/" element={<PublicDashboard />} />
+          <Route path="/" element={<RootOAuthCatch />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
