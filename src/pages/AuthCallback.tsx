@@ -102,7 +102,10 @@ export const AuthCallback: React.FC = () => {
         navigate('/dashboard', { replace: true });
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to complete sign-in.');
+      const isFetchErr = err.name === 'TypeError' || err.message === 'Failed to fetch';
+      setErrorMsg(isFetchErr
+        ? 'Cannot connect to backend server. Please start your Node backend server (port 5000).'
+        : (err.message || 'Failed to complete sign-in.'));
       setStep('error');
     }
   };
