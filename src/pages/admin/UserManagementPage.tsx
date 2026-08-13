@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Users, Search, Trash2, Mail, KeyRound, Eye, X, AlertTriangle
+  Users, Search, Trash2, Mail, KeyRound, Eye, X, AlertTriangle, Activity, Download, LogOut
 } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
+import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 
@@ -20,6 +22,8 @@ interface ManagedUser {
 }
 
 export const UserManagementPage: React.FC = () => {
+  const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,12 +32,31 @@ export const UserManagementPage: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'admin' | 'super_admin'>('all');
 
   const [panelUser, setPanelUser] = useState<ManagedUser | null>(null);
+  const [editingUserName, setEditingUserName] = useState(false);
+  const [editedName, setEditedName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null);
   const [resetTarget, setResetTarget] = useState<ManagedUser | null>(null);
   const [newPassword, setNewPassword] = useState('');
 
   const [actionLoading, setActionLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const handleSaveUserName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!panelUser || !editedName.trim()) return;
+    setActionLoading(true);
+    try {
+      await apiClient.updateUserProfile(panelUser.id, { full_name: editedName.trim() });
+      setMsg(`✓ Profile name updated to "${editedName.trim()}"`);
+      setEditingUserName(false);
+      setPanelUser(prev => prev ? { ...prev, full_name: editedName.trim() } : null);
+      await fetchAll();
+    } catch (err: any) {
+      setMsg(err.message || 'Failed updating user name');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const fetchAll = async () => {
     setLoading(true);
@@ -82,6 +105,11 @@ export const UserManagementPage: React.FC = () => {
 
   const handleDeleteUser = async () => {
     if (!deleteTarget) return;
+    if (currentUser?.role !== 'super_admin') {
+      setMsg('Only Super Admins have permission to delete user accounts.');
+      setDeleteTarget(null);
+      return;
+    }
     setActionLoading(true);
     try {
       await apiClient.deleteUser(deleteTarget.id);
@@ -112,6 +140,44 @@ export const UserManagementPage: React.FC = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    if (currentUser?.role !== 'super_admin') return;
+    const headers = ['User ID', 'Full Name', 'Email', 'Role', 'Status', 'Projects Count', 'Tasks Count', 'Created At'];
+    const rows = filteredUsers.map(u => [
+      `"${u.id}"`,
+      `"${(u.full_name || '').replace(/"/g, '""')}"`,
+      `"${(u.email || '').replace(/"/g, '""')}"`,
+      `"${u.role}"`,
+      `"${u.status}"`,
+      u.projectCount || 0,
+      u.taskCount || 0,
+      `"${new Date(u.created_at).toLocaleString()}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `deadlinehub_users_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleForceLogout = async (user: ManagedUser) => {
+    if (currentUser?.role !== 'super_admin') return;
+    if (!confirm(`Are you sure you want to force logout ${user.full_name} from all active devices?`)) return;
+    setActionLoading(true);
+    try {
+      const res = await apiClient.revokeUserSessions(user.id);
+      setMsg(`✓ ${res.message}`);
+    } catch (err: any) {
+      setMsg(err.message || 'Failed to revoke user sessions');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const filteredUsers = users.filter(u => {
     const q = search.toLowerCase();
     const matchesSearch = u.full_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q);
@@ -122,14 +188,26 @@ export const UserManagementPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <div className="flex items-center gap-2 text-brand text-xs font-bold uppercase tracking-wider mb-1">
-          <Users size={14} /> System User Administration
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-brand text-xs font-bold uppercase tracking-wider mb-1">
+            <Users size={14} /> System User Administration
+          </div>
+          <h1 className="font-heading font-bold text-2xl text-slate-900">Registered Users</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            View registered platform accounts, toggle activation status, reset passwords, and audit user workloads.
+          </p>
         </div>
-        <h1 className="font-heading font-bold text-2xl text-slate-900">Registered Users</h1>
-        <p className="text-xs text-slate-500 mt-1">
-          View registered platform accounts, toggle activation status, reset passwords, and audit user workloads.
-        </p>
+
+        {currentUser?.role === 'super_admin' && (
+          <button
+            onClick={handleExportCSV}
+            className="px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-brand/40 text-slate-700 hover:text-brand text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs self-start sm:self-auto"
+            title="Export User Registry to CSV"
+          >
+            <Download size={14} /> Export CSV
+          </button>
+        )}
       </div>
 
       {msg && (
@@ -239,9 +317,30 @@ export const UserManagementPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {currentUser?.role === 'super_admin' && (
+                          <>
+                            <button
+                              onClick={() => navigate(`/admin/users/${user.id}/activity`)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-brand-light transition cursor-pointer"
+                              title="View Full Activity Timeline"
+                            >
+                              <Activity size={14} />
+                            </button>
+
+                            <button
+                              onClick={() => handleForceLogout(user)}
+                              disabled={actionLoading || user.id === currentUser?.id}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Force Logout / Revoke Active Sessions"
+                            >
+                              <LogOut size={14} />
+                            </button>
+                          </>
+                        )}
+
                         <button
                           onClick={() => setPanelUser(user)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer"
                           title="View Profile Details"
                         >
                           <Eye size={14} />
@@ -249,7 +348,7 @@ export const UserManagementPage: React.FC = () => {
 
                         <button
                           onClick={() => setResetTarget(user)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-slate-100 transition"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-slate-100 transition cursor-pointer"
                           title="Reset Password"
                         >
                           <KeyRound size={14} />
@@ -257,20 +356,44 @@ export const UserManagementPage: React.FC = () => {
 
                         <button
                           onClick={() => handleToggleStatus(user)}
-                          disabled={actionLoading || user.id === 'superadmin-uuid-0000'}
-                          className={`px-2 py-1 rounded text-[10px] font-bold cursor-pointer transition ${user.status === 'active' ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}`}
+                          disabled={actionLoading || (user.id === currentUser?.id && currentUser?.role === 'super_admin')}
+                          className={`px-2 py-1 rounded text-[10px] font-bold transition ${
+                            user.id === currentUser?.id && currentUser?.role === 'super_admin'
+                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                              : user.status === 'active'
+                              ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 cursor-pointer'
+                              : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer'
+                          }`}
                         >
                           {user.status === 'active' ? 'Deactivate' : 'Activate'}
                         </button>
 
-                        <button
-                          onClick={() => setDeleteTarget(user)}
-                          disabled={actionLoading || user.id === 'superadmin-uuid-0000'}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                          title="Delete User"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {currentUser?.role !== 'super_admin' ? (
+                          <button
+                            disabled
+                            className="p-1.5 rounded-lg text-slate-300 cursor-not-allowed"
+                            title="Only Super Admins have permission to delete user accounts"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        ) : user.id === currentUser?.id ? (
+                          <button
+                            disabled
+                            className="p-1.5 rounded-lg text-slate-300 cursor-not-allowed"
+                            title="Transfer Super Admin role before deleting your account"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteTarget(user)}
+                            disabled={actionLoading}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                            title="Delete User"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -286,7 +409,7 @@ export const UserManagementPage: React.FC = () => {
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
               <h2 className="font-bold text-lg text-slate-900">User Profile Details</h2>
-              <button onClick={() => setPanelUser(null)} className="text-slate-400 hover:text-slate-800 p-1">
+              <button onClick={() => { setPanelUser(null); setEditingUserName(false); }} className="text-slate-400 hover:text-slate-800 p-1">
                 <X size={18} />
               </button>
             </div>
@@ -297,9 +420,35 @@ export const UserManagementPage: React.FC = () => {
                 alt=""
                 className="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 object-cover"
               />
-              <div>
-                <p className="font-bold text-slate-900 text-base">{panelUser.full_name}</p>
-                <p className="text-xs text-slate-500">{panelUser.email}</p>
+              <div className="flex-1 min-w-0">
+                {editingUserName ? (
+                  <form onSubmit={handleSaveUserName} className="space-y-2">
+                    <input
+                      type="text"
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      className="w-full p-1.5 text-xs border border-slate-300 rounded-lg bg-white font-bold"
+                      required
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <button type="submit" disabled={actionLoading} className="px-2 py-0.5 text-[10px] text-white bg-brand rounded font-bold cursor-pointer">Save</button>
+                      <button type="button" onClick={() => setEditingUserName(false)} className="px-2 py-0.5 text-[10px] text-slate-600 bg-slate-100 rounded font-medium cursor-pointer">Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-slate-900 text-base truncate">{panelUser.full_name}</p>
+                      <button
+                        onClick={() => { setEditingUserName(true); setEditedName(panelUser.full_name); }}
+                        className="text-[11px] text-brand font-bold hover:underline cursor-pointer ml-1 shrink-0"
+                      >
+                        Edit Name
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 truncate">{panelUser.email}</p>
+                  </div>
+                )}
                 <div className="mt-2 flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-brand-light text-brand border border-brand/20">
                     {panelUser.role.replace('_', ' ')}
@@ -330,8 +479,8 @@ export const UserManagementPage: React.FC = () => {
           <div className="pt-6 border-t border-slate-100 flex gap-2">
             <button
               onClick={() => handleToggleStatus(panelUser)}
-              disabled={actionLoading || panelUser.id === 'superadmin-uuid-0000'}
-              className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition"
+              disabled={actionLoading || (panelUser.id === currentUser?.id && currentUser?.role === 'super_admin')}
+              className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition cursor-pointer disabled:opacity-50"
             >
               {panelUser.status === 'active' ? 'Deactivate Account' : 'Activate Account'}
             </button>

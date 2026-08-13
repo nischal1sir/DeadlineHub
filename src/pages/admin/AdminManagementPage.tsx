@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, Trash2, Mail, ShieldAlert } from 'lucide-react';
+import { UserPlus, Trash2, Mail, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
+import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 
 export const AdminManagementPage: React.FC = () => {
+  const { user: currentUser } = useAuth();
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -13,6 +15,9 @@ export const AdminManagementPage: React.FC = () => {
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'super_admin'>('admin');
+
+  const [transferTarget, setTransferTarget] = useState('');
+  const [transferLoading, setTransferLoading] = useState(false);
 
   const [actionLoading, setActionLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -55,8 +60,8 @@ export const AdminManagementPage: React.FC = () => {
   };
 
   const handleToggleAdminRole = async (targetAdmin: any) => {
-    if (targetAdmin.id === 'superadmin-uuid-0000') {
-      setMsg('Primary Super Admin account role cannot be altered.');
+    if (targetAdmin.id === currentUser?.id && currentUser?.role === 'super_admin') {
+      setMsg('You cannot alter your own Super Admin role directly. Use Transfer Super Admin instead.');
       return;
     }
     const nextRole = targetAdmin.role === 'super_admin' ? 'admin' : 'super_admin';
@@ -73,8 +78,8 @@ export const AdminManagementPage: React.FC = () => {
   };
 
   const handleDeleteAdmin = async (targetAdmin: any) => {
-    if (targetAdmin.id === 'superadmin-uuid-0000') {
-      setMsg('Primary Super Admin account cannot be deleted.');
+    if (targetAdmin.id === currentUser?.id && currentUser?.role === 'super_admin') {
+      setMsg('Super Admin cannot delete their own account. Transfer the Super Admin role to another admin first.');
       return;
     }
     if (!window.confirm(`Are you sure you want to delete Admin ${targetAdmin.full_name}?`)) return;
@@ -88,6 +93,25 @@ export const AdminManagementPage: React.FC = () => {
       setMsg(err.message || 'Failed deleting admin');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleTransferSuperAdmin = async () => {
+    if (!transferTarget) return;
+    const targetObj = admins.find(a => a.id === transferTarget);
+    if (!window.confirm(`Are you sure you want to transfer your Super Admin role to ${targetObj?.full_name || 'this admin'}? You will be demoted to Admin.`)) return;
+
+    setTransferLoading(true);
+    setMsg(null);
+    try {
+      const result = await apiClient.transferSuperAdmin(transferTarget);
+      localStorage.setItem('tracker_auth_user', JSON.stringify(result.updatedProfile));
+      alert(result.message);
+      window.location.reload();
+    } catch (err: any) {
+      setMsg(err.message || 'Failed to transfer Super Admin role');
+    } finally {
+      setTransferLoading(false);
     }
   };
 
@@ -122,53 +146,117 @@ export const AdminManagementPage: React.FC = () => {
         <div className="p-12 text-center text-slate-500 text-xs">Loading admin registry...</div>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
-          {admins.map(admin => (
-            <div key={admin.id} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={admin.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${admin.email}`}
-                    alt=""
-                    className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 object-cover"
-                  />
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-sm">{admin.full_name}</h3>
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
-                      <Mail size={11} /> {admin.email}
-                    </p>
+          {admins.map(admin => {
+            const isSelfSuperAdmin = admin.id === currentUser?.id && currentUser?.role === 'super_admin';
+            return (
+              <div key={admin.id} className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={admin.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${admin.email}`}
+                      alt=""
+                      className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 object-cover"
+                    />
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                        {admin.full_name}
+                        {admin.id === currentUser?.id && (
+                          <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-normal">(You)</span>
+                        )}
+                      </h3>
+                      <p className="text-xs text-slate-500 flex items-center gap-1">
+                        <Mail size={11} /> {admin.email}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase ${admin.role === 'super_admin' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-brand-light text-brand border border-brand/20'}`}>
+                    {admin.role.replace('_', ' ')}
+                  </span>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-400">
+                    Joined: {new Date(admin.created_at).toLocaleDateString()}
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleAdminRole(admin)}
+                      disabled={actionLoading || isSelfSuperAdmin}
+                      className="px-2.5 py-1 rounded text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Set as {admin.role === 'super_admin' ? 'Admin' : 'Super Admin'}
+                    </button>
+
+                    {isSelfSuperAdmin ? (
+                      <button
+                        disabled
+                        className="p-1.5 rounded-lg text-slate-300 cursor-not-allowed"
+                        title="Super Admin cannot delete their own account. Transfer role first."
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleDeleteAdmin(admin)}
+                        disabled={actionLoading}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                        title="Delete Admin"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
-                <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase ${admin.role === 'super_admin' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-brand-light text-brand border border-brand/20'}`}>
-                  {admin.role.replace('_', ' ')}
-                </span>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] text-slate-400">
-                  Joined: {new Date(admin.created_at).toLocaleDateString()}
-                </span>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleToggleAdminRole(admin)}
-                    disabled={actionLoading || admin.id === 'superadmin-uuid-0000'}
-                    className="px-2.5 py-1 rounded text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer disabled:opacity-50"
-                  >
-                    Set as {admin.role === 'super_admin' ? 'Admin' : 'Super Admin'}
-                  </button>
-
-                  <button
-                    onClick={() => handleDeleteAdmin(admin)}
-                    disabled={actionLoading || admin.id === 'superadmin-uuid-0000'}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition disabled:opacity-30"
-                    title={admin.id === 'superadmin-uuid-0000' ? 'Primary Super Admin protected from deletion' : 'Delete Admin'}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
+      {/* Super Admin Role Transfer Console */}
+      {currentUser?.role === 'super_admin' && (
+        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-6 mt-6 shadow-xs space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+              <AlertTriangle size={20} />
             </div>
-          ))}
+            <div>
+              <h3 className="font-bold text-base text-amber-900 flex items-center gap-2">
+                Transfer Super Admin Privileges
+              </h3>
+              <p className="text-xs text-amber-700 mt-1 leading-relaxed max-w-2xl">
+                Select an existing active <strong>Admin</strong> user to receive full Super Admin authority. Your account will automatically be reassigned to standard Admin status upon completion.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+            <select
+              value={transferTarget}
+              onChange={(e) => setTransferTarget(e.target.value)}
+              className="flex-1 p-2.5 rounded-xl border border-amber-300 text-xs bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            >
+              <option value="">Select an active admin...</option>
+              {admins
+                .filter(a => a.role === 'admin' && a.id !== currentUser.id && a.status !== 'inactive')
+                .map(a => (
+                  <option key={a.id} value={a.id}>
+                    {a.full_name} ({a.email})
+                  </option>
+                ))}
+            </select>
+
+            <Button
+              variant="danger"
+              onClick={handleTransferSuperAdmin}
+              disabled={!transferTarget || transferLoading}
+              isLoading={transferLoading}
+              className="text-xs"
+            >
+              Transfer Super Admin Role
+            </Button>
+          </div>
         </div>
       )}
 
