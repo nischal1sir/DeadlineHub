@@ -61,6 +61,7 @@
 * **Read-Only Privilege Guards**: System settings protected by role guard overlays to prevent unauthorized configuration mutations.
 
 ### 🔐 Security & Infrastructure
+* **Google OAuth 2.0 Integration**: Single-click Google Sign-In and Registration with automatic profile synchronization, PKCE authorization code exchange, and duplicate email detection.
 * **Dual-Token Authentication**: Short-lived JWT access tokens paired with long-lived `httpOnly` secure refresh cookies for seamless cross-tab persistence.
 * **CORS & CSRF Protection**: Strict origin verification and cookie policy configuration for production deployments.
 
@@ -99,6 +100,8 @@ DeadlineHub/
 │   └── package.json
 ├── database/                 # SQL Schema & Migrations
 │   └── schema.sql            # Core Tables, RLS Policies & Triggers
+├── docs/                     # Comprehensive Guides & Documentation
+│   └── GOOGLE_OAUTH_SETUP_GUIDE.md # Complete Google Cloud & Supabase OAuth Guide
 ├── src/                      # React TypeScript Frontend
 │   ├── assets/               # Branding assets & logos
 │   ├── components/           # Reusable UI Primitives & Layout Shells
@@ -150,6 +153,16 @@ cd DeadlineHub
 2. Go to the **SQL Editor** tab in Supabase.
 3. Open the [`database/schema.sql`](database/schema.sql) file from this repository, copy its contents, paste them into the Supabase SQL Editor, and click **Run**.
 4. Go to **Storage** in Supabase and ensure a public bucket named `avatars` is created.
+
+---
+
+### 🔑 Google OAuth 2.0 Setup (Optional but Recommended)
+
+To enable **"Continue with Google"** authentication for registration and login:
+
+1. Configure **Google Cloud Console** credentials and **Supabase Auth Provider**.
+2. Follow our comprehensive step-by-step guide:  
+   👉 **[Google OAuth 2.0 & Supabase Integration Guide](docs/GOOGLE_OAUTH_SETUP_GUIDE.md)**
 
 ---
 
