@@ -5,6 +5,7 @@ export interface UserProfile {
   id: string;
   email: string;
   full_name: string;
+  phone?: string;
   role: 'user' | 'admin' | 'super_admin';
   status?: 'active' | 'inactive';
   avatar_url: string;
@@ -16,11 +17,12 @@ interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<void>;
-  register: (email: string, pass: string, name: string) => Promise<void>;
+  register: (email: string, pass: string, name: string, phone?: string) => Promise<void>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (password: string) => Promise<void>;
   updateProfile: (name: string, timezone: string, avatarUrl?: string) => Promise<void>;
+  updateAvatar: (blob: Blob) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,10 +72,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, pass: string, name: string) => {
+  const register = async (email: string, pass: string, name: string, phone?: string) => {
     setLoading(true);
     try {
-      const resUser = await apiClient.register(email, pass, name);
+      const resUser = await apiClient.register(email, pass, name, phone);
       setUser(resUser);
     } finally {
       setLoading(false);
@@ -107,8 +109,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(updated);
   };
 
+  const updateAvatar = async (file: Blob) => {
+    try {
+      const updated = await apiClient.uploadAvatar(file);
+      setUser(updated);
+    } catch (err) {
+      // Fallback to base64 Data URL if multipart upload endpoint fails
+      const base64Url = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const updated = await apiClient.updateProfile({
+        full_name: user?.full_name || '',
+        timezone: user?.timezone || 'UTC',
+        avatar_url: base64Url
+      });
+      setUser(updated);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, forgotPassword, resetPassword, updateProfile }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, forgotPassword, resetPassword, updateProfile, updateAvatar }}>
       {children}
     </AuthContext.Provider>
   );
