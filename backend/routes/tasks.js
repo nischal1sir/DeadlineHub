@@ -5,11 +5,11 @@ import { authenticateToken } from '../middleware/authMiddleware.js';
 const router = Router();
 router.use(authenticateToken);
 
-// ─────────────────────────────────────────────────────
+
 // GET /api/tasks/pending
 // Returns all non-done tasks across all projects the
 // current user owns, joined with project name.
-// ─────────────────────────────────────────────────────
+
 router.get('/pending', async (req, res) => {
   try {
     // 1. Get all projects owned by this user
@@ -51,10 +51,10 @@ router.get('/pending', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────
+
 // GET /api/projects/:projectId/tasks
 // Mounted under /api so resolves to /api/projects/:projectId/tasks
-// ─────────────────────────────────────────────────────
+
 router.get('/projects/:projectId/tasks', async (req, res) => {
   const { projectId } = req.params;
   try {
@@ -94,9 +94,9 @@ router.get('/projects/:projectId/tasks', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────
+
 // POST /api/projects/:projectId/tasks
-// ─────────────────────────────────────────────────────
+
 router.post('/projects/:projectId/tasks', async (req, res) => {
   const { projectId } = req.params;
   const { title, description, priority, due_date, module_id } = req.body;
@@ -136,9 +136,9 @@ router.post('/projects/:projectId/tasks', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────
+
 // PUT /api/tasks/:id - Update task details or status
-// ─────────────────────────────────────────────────────
+
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { status, title, description, priority, due_date } = req.body;
@@ -168,9 +168,9 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────────────
+
 // DELETE /api/tasks/:id
-// ─────────────────────────────────────────────────────
+
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   try {
