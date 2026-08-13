@@ -29,13 +29,37 @@ const makeTokens = (profile) => {
   return { accessToken, refreshToken };
 };
 
-const logActivity = async (userId, action, category, details) => {
+// Parse a readable device/browser summary from User-Agent string
+const getDeviceSummary = (ua = '') => {
+  if (!ua) return 'Unknown Device';
+  let browser = 'Unknown Browser';
+  let os = 'Unknown OS';
+  if (ua.includes('Chrome') && !ua.includes('Edg')) browser = 'Chrome';
+  else if (ua.includes('Firefox')) browser = 'Firefox';
+  else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+  else if (ua.includes('Edg')) browser = 'Edge';
+  else if (ua.includes('Opera') || ua.includes('OPR')) browser = 'Opera';
+  if (ua.includes('Windows')) os = 'Windows';
+  else if (ua.includes('Mac OS')) os = 'macOS';
+  else if (ua.includes('Linux')) os = 'Linux';
+  else if (ua.includes('Android')) os = 'Android';
+  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+  return `${browser} on ${os}`;
+};
+
+const logActivity = async (userId, action, category, details, req = null) => {
   try {
+    let enrichedDetails = details;
+    if (req) {
+      const device = getDeviceSummary(req.headers['user-agent']);
+      const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'Unknown IP';
+      enrichedDetails = `${details} | Device: ${device} | IP: ${ip}`;
+    }
     await supabase.from('activity_logs').insert([{
       user_id: userId,
       action,
       category,
-      details,
+      details: enrichedDetails,
       created_at: new Date().toISOString()
     }]);
   } catch (err) {
@@ -45,24 +69,47 @@ const logActivity = async (userId, action, category, details) => {
 
 // ── Register ──────────────────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
-  const { email, password, fullName } = req.body;
+  const { email, password, fullName, phone } = req.body;
 
-  if (!email || !password || !fullName) {
-    return res.status(400).json({ message: 'Email, password, and full name are required.' });
+  if (!email || !password || !fullName || !phone) {
+    return res.status(400).json({ message: 'Email, password, full name, and phone number are required.' });
+  }
+
+  const cleanPhone = phone.trim();
+  const phoneDigits = cleanPhone.replace(/[\s\-\(\)]/g, '');
+  if (!/^\+?[0-9]{7,15}$/.test(phoneDigits)) {
+    return res.status(400).json({ message: 'Please enter a valid phone number (7 to 15 digits, optional + prefix).' });
   }
 
   try {
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
+      phone: cleanPhone,
       email_confirm: true,
-      user_metadata: { full_name: fullName, role: 'user' }
+      user_metadata: {
+        full_name: fullName.trim(),
+        name: fullName.trim(),
+        display_name: fullName.trim(),
+        phone: cleanPhone,
+        role: 'user'
+      }
     });
 
     if (authError) throw authError;
 
     const user = authData.user;
     if (!user) throw new Error('User creation failed.');
+
+    // Ensure phone is saved in profiles table
+    try {
+      await supabase
+        .from('profiles')
+        .update({ phone: cleanPhone })
+        .eq('id', user.id);
+    } catch (dbErr) {
+      console.warn('Failed to update phone in profiles table:', dbErr.message);
+    }
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -71,12 +118,12 @@ router.post('/register', async (req, res) => {
       .single();
 
     const sessionProfile = profile || {
-      id: user.id, email, full_name: fullName, role: 'user', status: 'active'
+      id: user.id, email, full_name: fullName.trim(), phone: cleanPhone, role: 'user', status: 'active'
     };
 
     const { accessToken, refreshToken } = makeTokens(sessionProfile);
 
-    await logActivity(sessionProfile.id, 'USER_REGISTER', 'auth', `Registered new account: ${fullName}`);
+    await logActivity(sessionProfile.id, 'USER_REGISTER', 'auth', `Registered new account: ${fullName.trim()} (${cleanPhone})`, req);
 
     res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
     res.status(201).json({ token: accessToken, user: sessionProfile });
@@ -111,7 +158,7 @@ router.post('/login', async (req, res) => {
 
     const { accessToken, refreshToken } = makeTokens(profile);
 
-    await logActivity(profile.id, 'USER_LOGIN', 'auth', `User logged in as ${profile.role.toUpperCase()}`);
+    await logActivity(profile.id, 'USER_LOGIN', 'auth', `User logged in as ${profile.role.toUpperCase()}`, req);
 
     res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
     res.json({ token: accessToken, user: profile });
