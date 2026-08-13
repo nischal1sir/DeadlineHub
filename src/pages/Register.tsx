@@ -19,7 +19,6 @@ export const Register: React.FC = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -52,17 +51,8 @@ export const Register: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName || !lastName || !email || !phone || !password || !confirmPassword) {
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
       setError('Please fill in all required fields.');
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      return;
-    }
-
-    const cleanPhone = phone.trim();
-    const phoneDigits = cleanPhone.replace(/[\s\-\(\)]/g, '');
-    if (!/^\+?[0-9]{7,15}$/.test(phoneDigits)) {
-      setError('Please enter a valid phone number (7 to 15 digits, optional + prefix).');
       setShake(true);
       setTimeout(() => setShake(false), 500);
       return;
@@ -85,7 +75,7 @@ export const Register: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await register(email, password, fullName, cleanPhone);
+      await register(email, password, fullName);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Registration failed.');
@@ -190,16 +180,6 @@ export const Register: React.FC = () => {
                   onChange={e => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                />
-                <Input
-                  type="tel"
-                  label="Phone Number"
-                  placeholder="+977 9800000000"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  required
-                  helperText="Include country code (e.g. +977 or +1)."
-                  autoComplete="tel"
                 />
                 <div className="relative">
                   <Input

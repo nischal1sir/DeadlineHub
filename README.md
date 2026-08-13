@@ -61,7 +61,8 @@
 * **Read-Only Privilege Guards**: System settings protected by role guard overlays to prevent unauthorized configuration mutations.
 
 ### 🔐 Security & Infrastructure
-* **Google OAuth 2.0 Integration**: Single-click Google Sign-In and Registration with automatic profile synchronization, PKCE authorization code exchange, and duplicate email detection.
+* **Google OAuth 2.0 Integration**: Single-click Google Sign-In and Registration featuring a 100% serverless client fallback, automatic profile creation, PKCE code exchange, root hash interceptor, and duplicate registration protection.
+* **Streamlined Fast Sign-Up**: Simplified registration requiring only First Name, Last Name, Email, and Password (removed mandatory phone number prompt).
 * **Dual-Token Authentication**: Short-lived JWT access tokens paired with long-lived `httpOnly` secure refresh cookies for seamless cross-tab persistence.
 * **CORS & CSRF Protection**: Strict origin verification and cookie policy configuration for production deployments.
 
