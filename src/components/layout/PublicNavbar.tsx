@@ -8,6 +8,22 @@ export const PublicNavbar: React.FC = () => {
 
   const handleBrandClick = () => {
     navigate('/');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDashboardClick = () => {
+    navigate('/');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSignInClick = () => {
+    navigate('/login');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCreateAccountClick = () => {
+    navigate('/register');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -33,7 +49,7 @@ export const PublicNavbar: React.FC = () => {
         {/* Right: Auth & Navigation Actions */}
         <nav className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <button
-            onClick={() => navigate('/')}
+            onClick={handleDashboardClick}
             className="hidden md:flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 px-2.5 sm:px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors whitespace-nowrap"
             title="Public Dashboard"
           >
@@ -42,15 +58,15 @@ export const PublicNavbar: React.FC = () => {
           </button>
 
           <button
-            onClick={() => navigate('/login')}
+            onClick={handleSignInClick}
             className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-medium text-slate-700 hover:text-slate-900 px-2 sm:px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors whitespace-nowrap"
           >
             <LogIn size={15} className="shrink-0" />
             <span>Sign In</span>
           </button>
 
-          <button 
-            onClick={() => navigate('/register')}
+          <button
+            onClick={handleCreateAccountClick}
             className="text-xs sm:text-sm font-semibold text-white bg-brand hover:bg-brand-hover px-2.5 sm:px-4 py-1.5 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap shrink-0"
           >
             <UserPlus size={15} className="shrink-0" />
