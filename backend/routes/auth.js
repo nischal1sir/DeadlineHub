@@ -67,69 +67,147 @@ const logActivity = async (userId, action, category, details, req = null) => {
   }
 };
 
+// Check if supabase client has service_role privileges
+const checkIsServiceRole = async () => {
+  try {
+    // listUsers only works with service_role key
+    const { error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1 });
+    return !error;
+  } catch {
+    return false;
+  }
+};
+
 // ── Register ──────────────────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   const { email, password, fullName, phone } = req.body;
 
-  if (!email || !password || !fullName || !phone) {
-    return res.status(400).json({ message: 'Email, password, full name, and phone number are required.' });
+  if (!email || !password || !fullName) {
+    return res.status(400).json({ message: 'Email, password, and full name are required.' });
   }
 
-  const cleanPhone = phone.trim();
-  const phoneDigits = cleanPhone.replace(/[\s\-\(\)]/g, '');
-  if (!/^\+?[0-9]{7,15}$/.test(phoneDigits)) {
-    return res.status(400).json({ message: 'Please enter a valid phone number (7 to 15 digits, optional + prefix).' });
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanPhone = phone ? phone.trim() : null;
+
+  // Validate phone if provided
+  if (cleanPhone) {
+    const phoneDigits = cleanPhone.replace(/[\s\-\(\)]/g, '');
+    if (!/^\+?[0-9]{7,15}$/.test(phoneDigits)) {
+      return res.status(400).json({ message: 'Please enter a valid phone number (7 to 15 digits, optional + prefix).' });
+    }
   }
 
   try {
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      phone: cleanPhone,
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName.trim(),
-        name: fullName.trim(),
-        display_name: fullName.trim(),
-        phone: cleanPhone,
-        role: 'user'
-      }
-    });
+    // Check if profile already exists in DB
+    const { data: existingProf } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', cleanEmail)
+      .maybeSingle();
 
-    if (authError) throw authError;
-
-    const user = authData.user;
-    if (!user) throw new Error('User creation failed.');
-
-    // Ensure phone is saved in profiles table
-    try {
-      await supabase
-        .from('profiles')
-        .update({ phone: cleanPhone })
-        .eq('id', user.id);
-    } catch (dbErr) {
-      console.warn('Failed to update phone in profiles table:', dbErr.message);
+    if (existingProf) {
+      return res.status(400).json({
+        message: 'An account with this email address already exists. Please sign in instead.'
+      });
     }
 
-    const { data: profile } = await supabase
+    let user = null;
+
+    // Strategy 1: Try admin.createUser (works with service_role key)
+    try {
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: cleanEmail,
+        password,
+        ...(cleanPhone ? { phone: cleanPhone } : {}),
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName.trim(),
+          name: fullName.trim(),
+          display_name: fullName.trim(),
+          ...(cleanPhone ? { phone: cleanPhone } : {}),
+          role: 'user'
+        }
+      });
+
+      if (authError) throw authError;
+      user = authData.user;
+    } catch (adminErr) {
+      // If admin.createUser fails (e.g. using anon key), fall back to signUp
+      const isAdminAuthErr = adminErr.message?.includes('not authorized') ||
+                             adminErr.message?.includes('Invalid API key') ||
+                             adminErr.message?.includes('not allowed') ||
+                             adminErr.status === 403;
+
+      if (isAdminAuthErr) {
+        console.warn('[AUTH] admin.createUser failed (likely anon key). Falling back to signUp...');
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+              name: fullName.trim(),
+              display_name: fullName.trim(),
+              ...(cleanPhone ? { phone: cleanPhone } : {}),
+              role: 'user'
+            }
+          }
+        });
+
+        if (signUpErr) throw signUpErr;
+
+        // Check for fake signUp (Supabase returns user with identities=[] when email exists)
+        if (signUpData.user && (!signUpData.user.identities || signUpData.user.identities.length === 0)) {
+          return res.status(400).json({
+            message: 'An account with this email address already exists. Please sign in instead.'
+          });
+        }
+
+        user = signUpData.user;
+      } else {
+        // Re-throw real errors (duplicate email, etc.)
+        throw adminErr;
+      }
+    }
+
+    if (!user) throw new Error('User creation failed.');
+
+    // Create or update profile in public.profiles
+    const newProfile = {
+      id: user.id,
+      email: user.email || cleanEmail,
+      full_name: fullName.trim(),
+      ...(cleanPhone ? { phone: cleanPhone } : {}),
+      avatar_url: `https://api.dicebear.com/7.x/adventurer/svg?seed=${cleanEmail}`,
+      role: 'user',
+      status: 'active',
+      timezone: 'UTC',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: profile, error: profileErr } = await supabase
       .from('profiles')
-      .select('*')
-      .eq('id', user.id)
+      .upsert(newProfile, { onConflict: 'id' })
+      .select()
       .single();
 
-    const sessionProfile = profile || {
-      id: user.id, email, full_name: fullName.trim(), phone: cleanPhone, role: 'user', status: 'active'
-    };
+    const sessionProfile = profile || newProfile;
 
     const { accessToken, refreshToken } = makeTokens(sessionProfile);
 
-    await logActivity(sessionProfile.id, 'USER_REGISTER', 'auth', `Registered new account: ${fullName.trim()} (${cleanPhone})`, req);
+    await logActivity(sessionProfile.id, 'USER_REGISTER', 'auth',
+      `Registered new account: ${fullName.trim()}${cleanPhone ? ` (${cleanPhone})` : ''}`, req);
 
     res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
     res.status(201).json({ token: accessToken, user: sessionProfile });
   } catch (err) {
+    console.error('[AUTH] Registration error:', err.message);
     const msg = err.message || '';
-    if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already exists') || msg.includes('duplicate key')) {
+    if (msg.toLowerCase().includes('already registered') ||
+        msg.toLowerCase().includes('already exists') ||
+        msg.includes('duplicate key') ||
+        msg.includes('unique constraint')) {
       return res.status(400).json({ message: 'An account with this email address already exists. Please sign in instead.' });
     }
     res.status(400).json({ message: msg || 'Registration failed.' });
@@ -147,53 +225,63 @@ router.post('/login', async (req, res) => {
   const cleanEmail = email.trim().toLowerCase();
 
   try {
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password
+    });
 
     if (authError) {
-      // Check if user exists and had their password updated by an admin
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', cleanEmail)
-          .maybeSingle();
+      // Check if the user had their password changed by an admin (only if we have service_role)
+      if (authError.message?.includes('Invalid login credentials')) {
+        try {
+          const { data: profileRow } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', cleanEmail)
+            .maybeSingle();
 
-        if (profile?.id) {
-          const { data: userRes } = await supabase.auth.admin.getUserById(profile.id);
-          if (userRes?.user?.user_metadata?.password_changed_by_admin) {
-            return res.status(401).json({
-              message: 'Your password was changed by an administrator. Please log in using the new password assigned by your admin.'
-            });
+          if (profileRow?.id) {
+            // Try to check admin metadata — this may fail if using anon key, that's OK
+            try {
+              const { data: userRes } = await supabase.auth.admin.getUserById(profileRow.id);
+              if (userRes?.user?.user_metadata?.password_changed_by_admin) {
+                return res.status(401).json({
+                  message: 'Your password was changed by an administrator. Please log in using the new password assigned by your admin.'
+                });
+              }
+            } catch (adminCheckErr) {
+              // admin.getUserById not available (anon key) — skip this check
+            }
           }
+        } catch (checkErr) {
+          // Profile lookup failed — just proceed with generic error
         }
-      } catch (checkErr) {
-        console.warn('Check admin password reset status error:', checkErr.message);
       }
 
       throw authError;
     }
 
+    // Fetch or auto-create profile
     let { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', authData.user.id)
       .maybeSingle();
 
-    // Auto-create/repair missing profile in public.profiles table
     if (!profile) {
-      console.log(`[AUTH] Profile missing in public.profiles for user ID ${authData.user.id} (${cleanEmail}). Auto-creating profile...`);
+      console.log(`[AUTH] Profile missing for user ${authData.user.id} (${cleanEmail}). Auto-creating...`);
       const meta = authData.user.user_metadata || {};
       const isSuperAdmin = cleanEmail === 'admin@tracker.com' || cleanEmail.startsWith('superadmin');
       const isAdmin = cleanEmail.includes('admin');
       const defaultRole = isSuperAdmin ? 'super_admin' : (isAdmin ? 'admin' : 'user');
-      const role = meta.role || defaultRole;
 
       const newProfile = {
         id: authData.user.id,
         email: authData.user.email || cleanEmail,
-        full_name: meta.full_name || meta.display_name || meta.name || (cleanEmail === 'admin@tracker.com' ? 'System Administrator' : cleanEmail.split('@')[0]),
+        full_name: meta.full_name || meta.display_name || meta.name ||
+                   (cleanEmail === 'admin@tracker.com' ? 'System Administrator' : cleanEmail.split('@')[0]),
         avatar_url: meta.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${cleanEmail}`,
-        role: role,
+        role: meta.role || defaultRole,
         status: 'active',
         timezone: 'UTC',
         created_at: new Date().toISOString(),
@@ -208,7 +296,7 @@ router.post('/login', async (req, res) => {
 
       if (insertErr || !insertedProfile) {
         console.error('[AUTH] Failed to auto-create profile:', insertErr);
-        throw new Error('User profile record not found and could not be auto-created.');
+        throw new Error('User profile could not be created. Please contact the administrator.');
       }
       profile = insertedProfile;
     }
@@ -217,24 +305,25 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ message: 'This account has been deactivated. Please contact the administrator.' });
     }
 
+    // Check for admin password reset notice (graceful — won't crash if using anon key)
     let adminPasswordResetNotice = null;
     if (authData.user?.user_metadata?.password_changed_by_admin) {
       adminPasswordResetNotice = 'Your password was updated by an administrator.';
-      // Reset flag so notice only appears on the first successful login after admin reset
       try {
-        const currentMeta = authData.user.user_metadata || {};
+        const currentMeta = { ...(authData.user.user_metadata || {}) };
         delete currentMeta.password_changed_by_admin;
         await supabase.auth.admin.updateUserById(authData.user.id, {
           user_metadata: { ...currentMeta, password_changed_by_admin: false }
         });
       } catch (clearErr) {
-        console.warn('Failed to clear password_changed_by_admin flag:', clearErr.message);
+        // Couldn't clear flag (anon key) — notice will show again next login, that's acceptable
       }
     }
 
     const { accessToken, refreshToken } = makeTokens(profile);
 
-    await logActivity(profile.id, 'USER_LOGIN', 'auth', `User logged in as ${profile.role.toUpperCase()}`, req);
+    await logActivity(profile.id, 'USER_LOGIN', 'auth',
+      `User logged in as ${profile.role.toUpperCase()}`, req);
 
     res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
     res.json({
@@ -248,7 +337,7 @@ router.post('/login', async (req, res) => {
     if (errorMessage.includes('Invalid login credentials')) {
       errorMessage = 'Invalid email or password. Please check your credentials and try again.';
     } else if (errorMessage.includes('Email not confirmed')) {
-      errorMessage = 'Email address is not confirmed in Supabase. Please confirm your email in Supabase Dashboard.';
+      errorMessage = 'Your email address has not been confirmed. Please check your inbox for the confirmation email.';
     }
     res.status(401).json({ message: errorMessage });
   }
@@ -372,12 +461,23 @@ router.post('/google-callback', async (req, res) => {
                       user.user_metadata?.picture ||
                       `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`;
 
+    const cleanEmail = (user.email || '').toLowerCase();
+    const isSuperAdmin = cleanEmail === 'admin@tracker.com' || cleanEmail.startsWith('superadmin');
+    const isAdmin = cleanEmail.includes('admin');
+    const defaultRole = isSuperAdmin ? 'super_admin' : (isAdmin ? 'admin' : 'user');
+
     // Check if profile exists
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .maybeSingle();
+
+    if (mode === 'signup' && existingProfile) {
+      return res.status(400).json({
+        message: 'An account is already registered under this email. Please sign in instead.'
+      });
+    }
 
     let profile;
 
@@ -406,7 +506,7 @@ router.post('/google-callback', async (req, res) => {
         full_name: fullName,
         phone: phone || null,
         avatar_url: avatarUrl,
-        role: 'user',
+        role: user.user_metadata?.role || defaultRole,
         status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

@@ -135,12 +135,15 @@ export const AuthCallback: React.FC = () => {
           const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
           const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`;
 
+          const cleanEmail = (user.email || '').toLowerCase();
+          const defaultRole = cleanEmail === 'admin@tracker.com' ? 'super_admin' : (cleanEmail.includes('admin') ? 'admin' : 'user');
+
           const newProf = {
             id: user.id,
             email: user.email || '',
             full_name: fullName,
             avatar_url: avatarUrl,
-            role: 'user',
+            role: defaultRole,
             status: 'active',
             timezone: 'UTC',
             created_at: new Date().toISOString(),

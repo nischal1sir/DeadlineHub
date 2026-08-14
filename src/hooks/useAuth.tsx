@@ -80,29 +80,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Fallback to direct Supabase Auth client login if backend API server is offline/unreachable
         if (backendErr.message && (backendErr.message.includes('Cannot connect') || backendErr.message.includes('Failed to fetch') || backendErr.message.includes('fetch'))) {
           const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
-            email,
+            email: email.trim().toLowerCase(),
             password: pass
           });
 
           if (authErr) {
             if (authErr.message.includes('Invalid login credentials')) {
-              try {
-                const { data: dbProf } = await supabase
-                  .from('profiles')
-                  .select('id')
-                  .eq('email', email.trim().toLowerCase())
-                  .maybeSingle();
-
-                if (dbProf?.id) {
-                  const { data: userRes } = await supabase.auth.admin.getUserById(dbProf.id);
-                  if (userRes?.user?.user_metadata?.password_changed_by_admin) {
-                    throw new Error('Your password was changed by an administrator. Please log in using the new password assigned by your admin.');
-                  }
-                }
-              } catch (metaErr: any) {
-                if (metaErr.message?.includes('administrator')) throw metaErr;
-              }
-              throw new Error('Invalid email or password. If an administrator recently updated your password, please sign in with your new password.');
+              throw new Error('Invalid email or password. If an administrator recently changed your password, please use the new password.');
             }
             if (authErr.message.includes('Failed to fetch') || authErr.name === 'TypeError') {
               throw new Error('Unable to connect to authentication server. Please check your network connection.');
@@ -111,16 +95,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           if (authData.user) {
+            // Check for admin password reset notice
             let passwordNotice = null;
             if (authData.user.user_metadata?.password_changed_by_admin) {
               passwordNotice = 'Your password was updated by an administrator.';
-              try {
-                const currentMeta = authData.user.user_metadata || {};
-                delete currentMeta.password_changed_by_admin;
-                await supabase.auth.admin.updateUserById(authData.user.id, {
-                  user_metadata: { ...currentMeta, password_changed_by_admin: false }
-                });
-              } catch (e) {}
             }
 
             const { data: dbProfile } = await supabase
@@ -136,13 +114,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
               resUser = dbProfile;
             } else {
-              const fullName = authData.user.user_metadata?.full_name || authData.user.user_metadata?.name || (email.toLowerCase() === 'admin@tracker.com' ? 'System Administrator' : email.split('@')[0]);
-              const defaultRole = email.toLowerCase() === 'admin@tracker.com' ? 'super_admin' : (email.toLowerCase().includes('admin') ? 'admin' : 'user');
+              // Auto-create profile for users who exist in Supabase Auth but not in profiles table
+              const cleanEmail = email.trim().toLowerCase();
+              const fullName = authData.user.user_metadata?.full_name || authData.user.user_metadata?.name ||
+                (cleanEmail === 'admin@tracker.com' ? 'System Administrator' : cleanEmail.split('@')[0]);
+              const defaultRole = cleanEmail === 'admin@tracker.com' ? 'super_admin' :
+                (cleanEmail.includes('admin') ? 'admin' : 'user');
               const newProf = {
                 id: authData.user.id,
                 email: authData.user.email || email,
                 full_name: fullName,
-                avatar_url: authData.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${email}`,
+                avatar_url: authData.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${cleanEmail}`,
                 role: (authData.user.user_metadata?.role || defaultRole) as any,
                 status: 'active' as const,
                 timezone: 'UTC',
@@ -163,6 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw backendErr;
       }
 
+      // Handle backend-returned admin password notice
       if (resUser?._notice) {
         sessionStorage.setItem('admin_password_reset_notice', resUser._notice);
         delete resUser._notice;
