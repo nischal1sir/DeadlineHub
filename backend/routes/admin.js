@@ -53,7 +53,11 @@ router.put('/users/:id/profile', async (req, res) => {
   }
 
   try {
-    const { data: target } = await supabase.from('profiles').select('full_name').eq('id', id).single();
+    const { data: target } = await supabase.from('profiles').select('full_name, role').eq('id', id).single();
+
+    if (req.user.role !== 'super_admin' && target?.role !== 'user' && id !== req.user.id) {
+      return res.status(403).json({ message: 'Regular Admins cannot edit profile details of other Admins or Super Admins.' });
+    }
 
     const { data, error } = await supabase
       .from('profiles')
@@ -89,10 +93,14 @@ router.put('/users/:id/profile', async (req, res) => {
   }
 });
 
-// PUT /api/admin/users/:id/role - Update user role
+// PUT /api/admin/users/:id/role - Update user role (Super Admin only)
 router.put('/users/:id/role', async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
+
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ message: 'Only Super Admins have permission to modify user roles.' });
+  }
 
   if (!isUUID(id)) {
     return res.status(400).json({ message: 'Invalid user ID specified.' });
@@ -104,6 +112,14 @@ router.put('/users/:id/role', async (req, res) => {
 
   try {
     const { data: target } = await supabase.from('profiles').select('full_name, email').eq('id', id).single();
+
+    // Single Super Admin rule: if promoting to super_admin, demote current super_admin first
+    if (role === 'super_admin') {
+      await supabase
+        .from('profiles')
+        .update({ role: 'admin', updated_at: new Date().toISOString() })
+        .eq('role', 'super_admin');
+    }
 
     const { data, error } = await supabase
       .from('profiles')
@@ -136,7 +152,11 @@ router.put('/users/:id/status', async (req, res) => {
   }
 
   try {
-    const { data: target } = await supabase.from('profiles').select('full_name').eq('id', id).single();
+    const { data: target } = await supabase.from('profiles').select('full_name, role').eq('id', id).single();
+
+    if (req.user.role !== 'super_admin' && target?.role !== 'user') {
+      return res.status(403).json({ message: 'Regular Admins cannot modify the status of other Admins or Super Admins.' });
+    }
 
     const { data, error } = await supabase
       .from('profiles')
@@ -167,6 +187,12 @@ router.post('/users/:id/reset-password', async (req, res) => {
   if (!password) return res.status(400).json({ message: 'New password is required.' });
 
   try {
+    const { data: target } = await supabase.from('profiles').select('role, full_name').eq('id', id).single();
+
+    if (req.user.role !== 'super_admin' && target?.role !== 'user') {
+      return res.status(403).json({ message: 'Regular Admins can only reset passwords for standard users.' });
+    }
+
     // Preserve existing user metadata
     let existingMeta = {};
     try {
@@ -205,8 +231,12 @@ router.post('/users/:id/reset-password', async (req, res) => {
   }
 });
 
-// POST /api/admin/create-admin - Create new Admin user
+// POST /api/admin/create-admin - Create new Admin user (Super Admin only)
 router.post('/create-admin', async (req, res) => {
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ message: 'Only Super Admins can create new Admin accounts.' });
+  }
+
   const { email, password, full_name, role } = req.body;
 
   if (!email || !password || !full_name) {

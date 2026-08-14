@@ -1,8 +1,4 @@
-// API Client — Production Mode (Express + Supabase Backend)
-// Implements silent token refresh: when the access token expires (401),
-// the client automatically calls /auth/refresh (which reads the httpOnly
-// refresh-token cookie) to get a new access token, then retries the
-// original request — completely transparent to all callers.
+import { supabase } from './supabaseClient';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -192,7 +188,16 @@ export const apiClient = {
 
   // P R O J E C T S
   getProjects: async () => {
-    return request('/projects');
+    try {
+      return await request('/projects');
+    } catch (err: any) {
+      if (err.message?.includes('Cannot connect')) {
+        const { data, error } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+      }
+      throw err;
+    }
   },
 
   createProject: async (name: string, description: string, due_date?: string) => {
@@ -222,7 +227,16 @@ export const apiClient = {
 
   // T A S K S
   getTasksForProject: async (projectId: string) => {
-    return request(`/projects/${projectId}/tasks`);
+    try {
+      return await request(`/projects/${projectId}/tasks`);
+    } catch (err: any) {
+      if (err.message?.includes('Cannot connect')) {
+        const { data, error } = await supabase.from('tasks').select('*').eq('project_id', projectId).order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+      }
+      throw err;
+    }
   },
 
   createTask: async (projectId: string, task: { title: string; description: string; priority: string; due_date?: string; module_id?: string }) => {
@@ -260,15 +274,45 @@ export const apiClient = {
 
   // A D M I N  &  U S E R  M A N A G E M E N T
   getAllUsers: async () => {
-    return request('/admin/users');
+    try {
+      return await request('/admin/users');
+    } catch (err: any) {
+      if (err.message?.includes('Cannot connect')) {
+        const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        return data || [];
+      }
+      throw err;
+    }
   },
 
   updateUserRole: async (userId: string, role: 'super_admin' | 'admin' | 'user') => {
-    return request(`/admin/users/${userId}/role`, 'PUT', { role });
+    try {
+      return await request(`/admin/users/${userId}/role`, 'PUT', { role });
+    } catch (err: any) {
+      if (err.message?.includes('Cannot connect')) {
+        if (role === 'super_admin') {
+          await supabase.from('profiles').update({ role: 'admin', updated_at: new Date().toISOString() }).eq('role', 'super_admin');
+        }
+        const { data, error } = await supabase.from('profiles').update({ role, updated_at: new Date().toISOString() }).eq('id', userId).select().single();
+        if (error) throw error;
+        return data;
+      }
+      throw err;
+    }
   },
 
   updateUserStatus: async (userId: string, status: 'active' | 'inactive') => {
-    return request(`/admin/users/${userId}/status`, 'PUT', { status });
+    try {
+      return await request(`/admin/users/${userId}/status`, 'PUT', { status });
+    } catch (err: any) {
+      if (err.message?.includes('Cannot connect')) {
+        const { data, error } = await supabase.from('profiles').update({ status, updated_at: new Date().toISOString() }).eq('id', userId).select().single();
+        if (error) throw error;
+        return data;
+      }
+      throw err;
+    }
   },
 
   adminResetPassword: async (userId: string, newPass: string) => {
@@ -285,12 +329,72 @@ export const apiClient = {
 
   // P L A T F O R M  S T A T I S T I C S
   getPlatformStats: async () => {
-    return request('/admin/stats');
+    try {
+      return await request('/admin/stats');
+    } catch (err: any) {
+      if (err.message?.includes('Cannot connect')) {
+        const [
+          { data: users },
+          { data: projects },
+          { data: tasks }
+        ] = await Promise.all([
+          supabase.from('profiles').select('id, status, created_at'),
+          supabase.from('projects').select('id, status, due_date'),
+          supabase.from('tasks').select('id, status')
+        ]);
+
+        const now = new Date();
+        const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const todayStr = now.toISOString().split('T')[0];
+
+        const totalUsers = users?.length || 0;
+        const activeUsers = users?.filter(u => u.status !== 'inactive').length || 0;
+        const inactiveUsers = users?.filter(u => u.status === 'inactive').length || 0;
+        const newUsersThisMonth = users?.filter(u => new Date(u.created_at) >= firstOfMonth).length || 0;
+
+        const totalProjects = projects?.length || 0;
+        const completedProjects = projects?.filter(p => p.status === 'completed').length || 0;
+        const pendingProjects = projects?.filter(p => p.status === 'active' || p.status === 'pending').length || 0;
+        const overdueProjects = projects?.filter(p => p.status !== 'completed' && p.due_date && p.due_date.split('T')[0] < todayStr).length || 0;
+
+        const totalTasks = tasks?.length || 0;
+        const completedTasks = tasks?.filter(t => t.status === 'done').length || 0;
+
+        return {
+          totalUsers, activeUsers, inactiveUsers, newUsersThisMonth,
+          totalProjects, completedProjects, pendingProjects, overdueProjects,
+          totalTasks, completedTasks
+        };
+      }
+      throw err;
+    }
   },
 
   // A C T I V I T Y  L O G S
   getActivityLogs: async (): Promise<ActivityLog[]> => {
-    return request('/admin/activity-logs');
+    try {
+      return await request('/admin/activity-logs');
+    } catch (err: any) {
+      if (err.message?.includes('Cannot connect')) {
+        const { data: logs } = await supabase
+          .from('activity_logs')
+          .select('id, user_id, action, category, details, created_at')
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        return (logs || []).map((l: any) => ({
+          id: l.id,
+          user_id: l.user_id,
+          user_name: 'System User',
+          user_email: '—',
+          action: l.action,
+          category: l.category,
+          details: typeof l.details === 'string' ? l.details : JSON.stringify(l.details),
+          created_at: l.created_at
+        }));
+      }
+      throw err;
+    }
   },
 
   logActivity: (_action: string, _category: ActivityLog['category'], _details: string, _user?: any) => {
@@ -307,7 +411,16 @@ export const apiClient = {
   },
 
   updateUserProfile: async (userId: string, updates: { full_name: string; timezone?: string }) => {
-    return request(`/admin/users/${userId}/profile`, 'PUT', updates);
+    try {
+      return await request(`/admin/users/${userId}/profile`, 'PUT', updates);
+    } catch (err: any) {
+      if (err.message?.includes('Cannot connect')) {
+        const { data, error } = await supabase.from('profiles').update({ full_name: updates.full_name, ...(updates.timezone && { timezone: updates.timezone }), updated_at: new Date().toISOString() }).eq('id', userId).select().single();
+        if (error) throw error;
+        return data;
+      }
+      throw err;
+    }
   },
 
   // P R O F I L E

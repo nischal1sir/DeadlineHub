@@ -366,4 +366,40 @@ CREATE POLICY "Public read access for avatars"
 ON storage.objects FOR SELECT TO public
 USING (bucket_id = 'avatars');
 
+-- 8. SINGLE SUPER ADMIN ENFORCEMENT & ATOMIC SWAP FUNCTION
+-- Demote duplicate Super Admins if any exist before creating the unique index
+WITH ranked_super_admins AS (
+  SELECT id,
+         ROW_NUMBER() OVER (ORDER BY created_at ASC) AS rn
+  FROM public.profiles
+  WHERE role = 'super_admin'
+)
+UPDATE public.profiles
+SET role = 'admin'::user_role,
+    updated_at = NOW()
+WHERE id IN (
+  SELECT id FROM ranked_super_admins WHERE rn > 1
+);
+
+-- Enforce single Super Admin constraint
+CREATE UNIQUE INDEX IF NOT EXISTS single_super_admin_idx
+ON public.profiles (role)
+WHERE role = 'super_admin';
+
+-- Atomic procedure to transfer Super Admin privileges
+CREATE OR REPLACE FUNCTION public.assign_super_admin(target_user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  -- Demote current super admin(s) to admin
+  UPDATE public.profiles
+  SET role = 'admin'::user_role, updated_at = NOW()
+  WHERE role = 'super_admin' AND id != target_user_id;
+
+  -- Promote target user to super_admin
+  UPDATE public.profiles
+  SET role = 'super_admin'::user_role, updated_at = NOW()
+  WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- SCHEMA COMPLETE ✓

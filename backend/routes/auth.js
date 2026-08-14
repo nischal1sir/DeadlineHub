@@ -169,7 +169,7 @@ router.post('/register', async (req, res) => {
     const { accessToken, refreshToken } = makeTokens(sessionProfile);
 
     await logActivity(sessionProfile.id, 'USER_REGISTER', 'auth',
-      `Registered new account: ${fullName.trim()}${cleanPhone ? ` (${cleanPhone})` : ''}`, req);
+      `Registered new account: ${fullName.trim()}`, req);
 
     res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
     res.status(201).json({ token: accessToken, user: sessionProfile });
@@ -376,7 +376,7 @@ router.post('/google-callback', async (req, res) => {
 
     if (mode === 'signup' && existingProfile) {
       return res.status(400).json({
-        message: 'An account is already registered under this email. Please sign in instead.'
+        message: 'This Gmail account is already registered. Please login instead.'
       });
     }
 

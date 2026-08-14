@@ -350,27 +350,47 @@ export const UserManagementPage: React.FC = () => {
                           <Eye size={14} />
                         </button>
 
-                        <button
-                          onClick={() => setResetTarget(user)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-slate-100 transition cursor-pointer"
-                          title="Reset Password"
-                        >
-                          <KeyRound size={14} />
-                        </button>
+                        {currentUser?.role !== 'super_admin' && (user.role === 'admin' || user.role === 'super_admin') ? (
+                          <button
+                            disabled
+                            className="p-1.5 rounded-lg text-slate-300 cursor-not-allowed"
+                            title="Admins cannot reset passwords for other Admins or Super Admins"
+                          >
+                            <KeyRound size={14} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setResetTarget(user)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-brand hover:bg-slate-100 transition cursor-pointer"
+                            title="Reset Password"
+                          >
+                            <KeyRound size={14} />
+                          </button>
+                        )}
 
-                        <button
-                          onClick={() => handleToggleStatus(user)}
-                          disabled={actionLoading || (user.id === currentUser?.id && currentUser?.role === 'super_admin')}
-                          className={`px-2 py-1 rounded text-[10px] font-bold transition ${
-                            user.id === currentUser?.id && currentUser?.role === 'super_admin'
-                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                              : user.status === 'active'
-                              ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 cursor-pointer'
-                              : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer'
-                          }`}
-                        >
-                          {user.status === 'active' ? 'Deactivate' : 'Activate'}
-                        </button>
+                        {currentUser?.role !== 'super_admin' && (user.role === 'admin' || user.role === 'super_admin') ? (
+                          <button
+                            disabled
+                            className="px-2 py-1 rounded text-[10px] font-bold bg-slate-100 text-slate-300 cursor-not-allowed"
+                            title="Admins cannot modify status of other Admins or Super Admins"
+                          >
+                            {user.status === 'active' ? 'Deactivate' : 'Activate'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleStatus(user)}
+                            disabled={actionLoading || (user.id === currentUser?.id && currentUser?.role === 'super_admin')}
+                            className={`px-2 py-1 rounded text-[10px] font-bold transition ${
+                              user.id === currentUser?.id && currentUser?.role === 'super_admin'
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                : user.status === 'active'
+                                ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 cursor-pointer'
+                                : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 cursor-pointer'
+                            }`}
+                          >
+                            {user.status === 'active' ? 'Deactivate' : 'Activate'}
+                          </button>
+                        )}
 
                         {currentUser?.role !== 'super_admin' ? (
                           <button
@@ -443,12 +463,14 @@ export const UserManagementPage: React.FC = () => {
                   <div>
                     <div className="flex items-center justify-between">
                       <p className="font-bold text-slate-900 text-base truncate">{panelUser.full_name}</p>
-                      <button
-                        onClick={() => { setEditingUserName(true); setEditedName(panelUser.full_name); }}
-                        className="text-[11px] text-brand font-bold hover:underline cursor-pointer ml-1 shrink-0"
-                      >
-                        Edit Name
-                      </button>
+                      {(currentUser?.role === 'super_admin' || panelUser.role === 'user' || panelUser.id === currentUser?.id) && (
+                        <button
+                          onClick={() => { setEditingUserName(true); setEditedName(panelUser.full_name); }}
+                          className="text-[11px] text-brand font-bold hover:underline cursor-pointer ml-1 shrink-0"
+                        >
+                          Edit Name
+                        </button>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 truncate">{panelUser.email}</p>
                   </div>
@@ -483,8 +505,8 @@ export const UserManagementPage: React.FC = () => {
           <div className="pt-6 border-t border-slate-100 flex gap-2">
             <button
               onClick={() => handleToggleStatus(panelUser)}
-              disabled={actionLoading || (panelUser.id === currentUser?.id && currentUser?.role === 'super_admin')}
-              className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition cursor-pointer disabled:opacity-50"
+              disabled={actionLoading || (panelUser.id === currentUser?.id && currentUser?.role === 'super_admin') || (currentUser?.role !== 'super_admin' && (panelUser.role === 'admin' || panelUser.role === 'super_admin'))}
+              className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {panelUser.status === 'active' ? 'Deactivate Account' : 'Activate Account'}
             </button>

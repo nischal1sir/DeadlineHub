@@ -115,6 +115,18 @@ export const AdminManagementPage: React.FC = () => {
     }
   };
 
+  if (currentUser?.role !== 'super_admin') {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-xs max-w-lg mx-auto mt-12">
+        <ShieldAlert size={40} className="text-amber-500 mx-auto mb-3" />
+        <h2 className="font-bold text-lg text-slate-900 mb-1">Super Admin Privileges Required</h2>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Only the primary Super Admin has permission to view the admin console, create new Admin accounts, or modify administrative roles.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">

@@ -74,7 +74,7 @@ export const ProjectList: React.FC = () => {
           <h1 className="font-heading font-bold text-2xl text-slate-900">My Projects</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage your project workspaces</p>
         </div>
-        <Button onClick={() => setModalOpen(true)} icon={<Plus size={15} />}>New Project</Button>
+        <Button onClick={() => { setFormError(null); setModalOpen(true); }} icon={<Plus size={15} />}>New Project</Button>
       </div>
 
       {projects.length === 0 ? (
@@ -82,7 +82,7 @@ export const ProjectList: React.FC = () => {
           <FolderKanban size={48} className="text-slate-400 mb-4" />
           <h3 className="font-semibold text-slate-700 mb-1">No projects yet</h3>
           <p className="text-sm text-slate-500 mb-6">Create your first project to start tracking tasks</p>
-          <Button onClick={() => setModalOpen(true)} icon={<Plus size={15} />}>Create First Project</Button>
+          <Button onClick={() => { setFormError(null); setModalOpen(true); }} icon={<Plus size={15} />}>Create First Project</Button>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">

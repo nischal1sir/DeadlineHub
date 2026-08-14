@@ -90,10 +90,10 @@ export const AuthCallback: React.FC = () => {
           token = data.token || accessToken;
         } else {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || 'An account is already registered under this email. Please sign in instead.');
+          throw new Error(errData.message || 'This Gmail account is already registered. Please login instead.');
         }
       } catch (backendErr: any) {
-        if (backendErr.message && backendErr.message.includes('already registered')) {
+        if (backendErr.message && (backendErr.message.includes('already registered') || backendErr.message.includes('already exists'))) {
           throw backendErr;
         }
         // Backend offline or unreachable — proceed to client-side Supabase fallback
@@ -122,7 +122,7 @@ export const AuthCallback: React.FC = () => {
               await supabase.auth.signOut();
               localStorage.removeItem('tracker_jwt');
               localStorage.removeItem('tracker_auth_user');
-              throw new Error('An account is already registered under this email. Please sign in instead.');
+              throw new Error('This Gmail account is already registered. Please login instead.');
             }
           }
           userProfile = dbProfile;
@@ -192,7 +192,7 @@ export const AuthCallback: React.FC = () => {
           </div>
           <h2 className="font-heading font-bold text-xl text-slate-900 mb-2">Sign-in failed</h2>
           <p className="text-sm text-slate-500 mb-6 leading-relaxed">{errorMsg}</p>
-          <Button className="w-full" onClick={() => navigate('/login')}>Back to Login</Button>
+          <Button className="w-full" onClick={() => navigate('/login')}>Go to Login</Button>
         </div>
       </div>
       <PublicFooter />
