@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiClient } from '../lib/apiClient';
+import { supabase } from '../lib/supabaseClient';
 
 export interface UserProfile {
   id: string;
@@ -108,12 +109,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfile = async (name: string, timezone: string, avatarUrl?: string) => {
-    const updated = await apiClient.updateProfile({
-      full_name: name,
-      timezone,
-      avatar_url: avatarUrl
-    });
-    setUser(updated);
+    try {
+      const updated = await apiClient.updateProfile({
+        full_name: name,
+        timezone,
+        avatar_url: avatarUrl
+      });
+      setUser(updated);
+    } catch (backendErr: any) {
+      // Fallback: Direct Supabase DB update if Express backend server is offline
+      if (user?.id) {
+        const updates: any = {
+          full_name: name,
+          timezone: timezone || 'UTC',
+          updated_at: new Date().toISOString()
+        };
+        if (avatarUrl !== undefined) updates.avatar_url = avatarUrl;
+
+        const { data: updatedProfile, error } = await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', user.id)
+          .select()
+          .maybeSingle();
+
+        if (error) throw new Error(error.message || 'Failed to update profile');
+
+        const newUser = { ...user, ...updates, ...(updatedProfile || {}) };
+        localStorage.setItem('tracker_auth_user', JSON.stringify(newUser));
+        setUser(newUser);
+        return;
+      }
+      throw backendErr;
+    }
   };
 
   const updateAvatar = async (file: Blob) => {
@@ -121,7 +149,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updated = await apiClient.uploadAvatar(file);
       setUser(updated);
     } catch (err) {
-      // Fallback to base64 Data URL if multipart upload endpoint fails
+      // Fallback to Supabase Storage or Base64 Data URL if backend endpoint fails
+      try {
+        if (user?.id) {
+          const fileName = `${user.id}-${Date.now()}.png`;
+          const { data: uploadData, error: uploadErr } = await supabase.storage
+            .from('avatars')
+            .upload(fileName, file, { contentType: 'image/png', upsert: true });
+
+          if (!uploadErr && uploadData?.path) {
+            const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(uploadData.path);
+            if (publicUrlData?.publicUrl) {
+              await updateProfile(user.full_name, user.timezone || 'UTC', publicUrlData.publicUrl);
+              return;
+            }
+          }
+        }
+      } catch (storageErr) {
+        // Fallthrough to Base64
+      }
+
+      // Base64 Data URL fallback
       const base64Url = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
@@ -129,12 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         reader.readAsDataURL(file);
       });
 
-      const updated = await apiClient.updateProfile({
-        full_name: user?.full_name || '',
-        timezone: user?.timezone || 'UTC',
-        avatar_url: base64Url
-      });
-      setUser(updated);
+      await updateProfile(user?.full_name || '', user?.timezone || 'UTC', base64Url);
     }
   };
 
