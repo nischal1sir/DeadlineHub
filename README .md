@@ -35,6 +35,7 @@
   - [Frontend (Vercel / Netlify)](#frontend-vercel--netlify)
   - [Backend (Render / Railway)](#backend-render--railway)
   - [Database (Supabase)](#database-supabase)
+- [📘 Additional Guides](#-additional-guides)
 - [🤝 Open Source & Contributing](#-open-source--contributing)
 - [📜 License & Author](#-license--author)
 
@@ -102,28 +103,29 @@ DeadlineHub/
 ├── database/                 # SQL Schema & Migrations
 │   └── schema.sql            # Core Tables, RLS Policies & Triggers
 ├── docs/                     # Comprehensive Guides & Documentation
-│   └── GOOGLE_OAUTH_SETUP_GUIDE.md # Complete Google Cloud & Supabase OAuth Guide
+│   ├── GOOGLE_OAUTH_SETUP_GUIDE.md # Complete Google Cloud & Supabase OAuth Guide
+│   └── DEPLOYMENT_GUIDE.md   # Full Production Deployment Guide (Vercel + Render + Supabase)
 ├── src/                      # React TypeScript Frontend
 │   ├── assets/               # Branding assets & logos
 │   ├── components/           # Reusable UI Primitives & Layout Shells
 │   │   ├── layout/           # PublicNavbar, Sidebar, AdminNavbar, AdminLayout
-│   │   └── ui/               # Buttons, Inputs, Modals, Badges
-│   ├── hooks/                # Client Auth Hooks (useAuth)
-│   ├── lib/                  # API Client & Utility Functions
-│   ├── pages/                # Page Views
-│   │   ├── admin/            # Admin Control Center (Dashboard, Logs, Stats, Settings)
-│   │   ├── user/             # User Views (Calendar, Timeline, Analytics)
-│   │   ├── Login.tsx         # Responsive Dual-Pane Auth Page
-│   │   ├── Register.tsx      # Responsive Dual-Pane Signup Page
-│   │   ├── Profile.tsx       # Profile & Canvas Photo Cropper
-│   │   └── UserDashboard.tsx # Main User Portal
-│   ├── App.tsx               # Root App Router & Auth Guards
-│   ├── main.tsx              # React Entrypoint
-│   └── index.css             # Frosted Fern Theme Tokens & Utility Classes
-├── COMMIT_WORKFLOW.md        # Step-by-Step 25 Commit Workflow Guide
-├── README.md                 # Project Open Source Documentation
-├── vercel.json               # Vercel Deployment Configuration
-└── vite.config.ts            # Vite Configuration
+│   │   └── ui/                # Buttons, Inputs, Modals, Badges
+│   ├── hooks/                 # Client Auth Hooks (useAuth)
+│   ├── lib/                   # API Client & Utility Functions
+│   ├── pages/                 # Page Views
+│   │   ├── admin/             # Admin Control Center (Dashboard, Logs, Stats, Settings)
+│   │   ├── user/               # User Views (Calendar, Timeline, Analytics)
+│   │   ├── Login.tsx           # Responsive Dual-Pane Auth Page
+│   │   ├── Register.tsx        # Responsive Dual-Pane Signup Page
+│   │   ├── Profile.tsx         # Profile & Canvas Photo Cropper
+│   │   └── UserDashboard.tsx   # Main User Portal
+│   ├── App.tsx                # Root App Router & Auth Guards
+│   ├── main.tsx                # React Entrypoint
+│   └── index.css               # Frosted Fern Theme Tokens & Utility Classes
+├── COMMIT_WORKFLOW.md         # Step-by-Step 25 Commit Workflow Guide
+├── README.md                  # Project Open Source Documentation
+├── vercel.json                # Vercel Deployment Configuration
+└── vite.config.ts             # Vite Configuration
 ```
 
 ---
@@ -203,8 +205,10 @@ To enable **"Continue with Google"** authentication for registration and login:
 2. Create a `.env` file in the project root based on `.env.example`:
    ```env
    VITE_API_URL=http://localhost:5000/api
+   VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
-   > **Note:** The frontend communicates with Supabase entirely through the Express backend API. No Supabase keys are needed in the frontend `.env`.
+   > **Note:** Most database operations go through the Express backend API. The `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are only needed client-side for the Google OAuth serverless fallback flow — they are the public/anon key and are safe to expose in frontend code.
 
 3. Start the Vite React development server:
    ```bash
@@ -230,20 +234,28 @@ To enable **"Continue with Google"** authentication for registration and login:
 | Variable | Description | Example / Default |
 |---|---|---|
 | `VITE_API_URL` | Backend Express API base URL | `http://localhost:5000/api` |
+| `VITE_SUPABASE_URL` | Supabase project URL (used for the Google OAuth client-side flow) | `https://xxxx.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Supabase public/anon key (safe to expose; used for Google OAuth) | `eyJhbGciOi...` |
 
-> **Note:** The frontend does **not** connect to Supabase directly. All database operations go through the Express backend. Only `VITE_API_URL` is required.
+> **Note:** All standard database operations (projects, tasks, admin data, etc.) go through the Express backend API — the frontend only talks to Supabase directly for the Google OAuth sign-in flow.
+
+For a complete, step-by-step walkthrough of every environment variable — including exactly where to find each key inside the Supabase dashboard and common setup mistakes — see the **[full Deployment Guide](docs/DEPLOYMENT_GUIDE.md)**.
 
 ---
 
 ## 🌐 Production Deployment Guide
+
+> 📘 **For the complete walkthrough** — including where to find each Supabase key, a step-by-step Vercel + Render setup, a post-deploy verification checklist, and common mistakes to watch for — see **[`docs/DEPLOYMENT_GUIDE.md`](docs/DEPLOYMENT_GUIDE.md)**. The quick version is below.
 
 ### Frontend (Vercel / Netlify)
 1. Import your GitHub repository to **[Vercel](https://vercel.com/)** or **[Netlify](https://netlify.com/)**.
 2. Framework Preset: **Vite**.
 3. Build Command: `npm run build`.
 4. Output Directory: `dist`.
-5. Add Environment Variable:
+5. Add Environment Variables:
    * `VITE_API_URL` = `https://your-backend-service.onrender.com/api`
+   * `VITE_SUPABASE_URL` = `https://your-supabase-project.supabase.co`
+   * `VITE_SUPABASE_ANON_KEY` = your Supabase anon/public key
 
 ### Backend (Render / Railway)
 1. Create a new **Web Service** on **[Render](https://render.com/)** or **Railway**.
@@ -253,6 +265,16 @@ To enable **"Continue with Google"** authentication for registration and login:
 5. Add Environment Variables:
    * Set `CLIENT_URL` to your production frontend URL (e.g. `https://deadlinehub.vercel.app`).
    * Set `PORT`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY`.
+
+### Database (Supabase)
+Your Supabase project is already live once created — no separate deploy step is needed. Just make sure your schema (`database/schema.sql`) has been run and your `avatars` storage bucket exists (see [Step 2](#2-database-setup-supabase-postgresql) above).
+
+---
+
+## 📘 Additional Guides
+
+* **[Google OAuth 2.0 & Supabase Integration Guide](docs/GOOGLE_OAUTH_SETUP_GUIDE.md)** — Full setup for Google Cloud Console credentials and the Supabase Auth provider.
+* **[Production Deployment Guide](docs/DEPLOYMENT_GUIDE.md)** — Complete Vercel + Render + Supabase deployment walkthrough, with sample env values, where to find each Supabase key, and a post-deploy checklist.
 
 ---
 
