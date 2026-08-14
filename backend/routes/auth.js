@@ -144,9 +144,34 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ message: 'Email and password are required.' });
   }
 
+  const cleanEmail = email.trim().toLowerCase();
+
   try {
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError) throw authError;
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+
+    if (authError) {
+      // Check if user exists and had their password updated by an admin
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+
+        if (profile?.id) {
+          const { data: userRes } = await supabase.auth.admin.getUserById(profile.id);
+          if (userRes?.user?.user_metadata?.password_changed_by_admin) {
+            return res.status(401).json({
+              message: 'Your password was changed by an administrator. Please log in using the new password assigned by your admin.'
+            });
+          }
+        }
+      } catch (checkErr) {
+        console.warn('Check admin password reset status error:', checkErr.message);
+      }
+
+      throw authError;
+    }
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -160,12 +185,31 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ message: 'This account has been deactivated. Please contact the administrator.' });
     }
 
+    let adminPasswordResetNotice = null;
+    if (authData.user?.user_metadata?.password_changed_by_admin) {
+      adminPasswordResetNotice = 'Your password was updated by an administrator.';
+      // Reset flag so notice only appears on the first successful login after admin reset
+      try {
+        const currentMeta = authData.user.user_metadata || {};
+        delete currentMeta.password_changed_by_admin;
+        await supabase.auth.admin.updateUserById(authData.user.id, {
+          user_metadata: { ...currentMeta, password_changed_by_admin: false }
+        });
+      } catch (clearErr) {
+        console.warn('Failed to clear password_changed_by_admin flag:', clearErr.message);
+      }
+    }
+
     const { accessToken, refreshToken } = makeTokens(profile);
 
     await logActivity(profile.id, 'USER_LOGIN', 'auth', `User logged in as ${profile.role.toUpperCase()}`, req);
 
     res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
-    res.json({ token: accessToken, user: profile });
+    res.json({
+      token: accessToken,
+      user: profile,
+      ...(adminPasswordResetNotice && { notice: adminPasswordResetNotice })
+    });
   } catch (err) {
     const errorMessage = err.message && err.message.includes('Email not confirmed')
       ? 'Email or password is incorrect'

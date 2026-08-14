@@ -167,14 +167,41 @@ router.post('/users/:id/reset-password', async (req, res) => {
   if (!password) return res.status(400).json({ message: 'New password is required.' });
 
   try {
-    const { error } = await supabase.auth.admin.updateUserById(id, { password });
+    // Preserve existing user metadata
+    let existingMeta = {};
+    try {
+      const { data: userRes } = await supabase.auth.admin.getUserById(id);
+      if (userRes?.user) existingMeta = userRes.user.user_metadata || {};
+    } catch (e) {}
+
+    // Update user password directly in Supabase Auth via Admin API
+    const { error } = await supabase.auth.admin.updateUserById(id, {
+      password,
+      user_metadata: {
+        ...existingMeta,
+        password_changed_by_admin: true,
+        admin_password_updated_at: new Date().toISOString()
+      }
+    });
+
     if (error) throw error;
+
+    // Revoke active sessions for the user so they must re-authenticate with the new password
+    try {
+      await supabase.auth.admin.signOut(id, 'global');
+    } catch (signOutErr) {
+      console.warn('Admin reset global signOut warning:', signOutErr.message);
+    }
 
     await logAdminActivity(req.user.id, 'ADMIN_RESET_PASSWORD', 'admin', `Reset password for user ID ${id}`);
 
-    res.json({ success: true, message: 'Password updated successfully.' });
+    res.json({
+      success: true,
+      message: 'Password updated directly in Supabase Auth. The user will be notified upon login that their password was changed by an administrator.'
+    });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    console.error('Failed to reset user password in Supabase:', err);
+    res.status(400).json({ message: err.message || 'Failed to update password in Supabase.' });
   }
 });
 

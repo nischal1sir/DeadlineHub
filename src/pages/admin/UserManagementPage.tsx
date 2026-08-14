@@ -127,10 +127,14 @@ export const UserManagementPage: React.FC = () => {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetTarget || !newPassword) return;
+    if (newPassword.length < 6) {
+      setMsg('Password must be at least 6 characters long.');
+      return;
+    }
     setActionLoading(true);
     try {
       await apiClient.adminResetPassword(resetTarget.id, newPassword);
-      setMsg(`✓ Password for ${resetTarget.full_name} has been reset.`);
+      setMsg(`✓ Password for ${resetTarget.full_name} has been updated in Supabase. The user can now log in using their new password.`);
       setResetTarget(null);
       setNewPassword('');
     } catch (err: any) {

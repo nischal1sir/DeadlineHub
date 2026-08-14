@@ -73,7 +73,99 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, pass: string) => {
     setLoading(true);
     try {
-      const resUser = await apiClient.login(email, pass);
+      let resUser: any = null;
+      try {
+        resUser = await apiClient.login(email, pass);
+      } catch (backendErr: any) {
+        // Fallback to direct Supabase Auth client login if backend API server is offline/unreachable
+        if (backendErr.message && (backendErr.message.includes('Cannot connect') || backendErr.message.includes('Failed to fetch') || backendErr.message.includes('fetch'))) {
+          const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
+            email,
+            password: pass
+          });
+
+          if (authErr) {
+            if (authErr.message.includes('Invalid login credentials')) {
+              try {
+                const { data: dbProf } = await supabase
+                  .from('profiles')
+                  .select('id')
+                  .eq('email', email.trim().toLowerCase())
+                  .maybeSingle();
+
+                if (dbProf?.id) {
+                  const { data: userRes } = await supabase.auth.admin.getUserById(dbProf.id);
+                  if (userRes?.user?.user_metadata?.password_changed_by_admin) {
+                    throw new Error('Your password was changed by an administrator. Please log in using the new password assigned by your admin.');
+                  }
+                }
+              } catch (metaErr: any) {
+                if (metaErr.message?.includes('administrator')) throw metaErr;
+              }
+              throw new Error('Invalid email or password. If an administrator recently updated your password, please sign in with your new password.');
+            }
+            if (authErr.message.includes('Failed to fetch') || authErr.name === 'TypeError') {
+              throw new Error('Unable to connect to authentication server. Please check your network connection.');
+            }
+            throw new Error(authErr.message || 'Login failed.');
+          }
+
+          if (authData.user) {
+            let passwordNotice = null;
+            if (authData.user.user_metadata?.password_changed_by_admin) {
+              passwordNotice = 'Your password was updated by an administrator.';
+              try {
+                const currentMeta = authData.user.user_metadata || {};
+                delete currentMeta.password_changed_by_admin;
+                await supabase.auth.admin.updateUserById(authData.user.id, {
+                  user_metadata: { ...currentMeta, password_changed_by_admin: false }
+                });
+              } catch (e) {}
+            }
+
+            const { data: dbProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authData.user.id)
+              .maybeSingle();
+
+            if (dbProfile) {
+              if (dbProfile.status === 'inactive') {
+                await supabase.auth.signOut();
+                throw new Error('Your account is currently inactive. Please contact an administrator.');
+              }
+              resUser = dbProfile;
+            } else {
+              const fullName = authData.user.user_metadata?.full_name || authData.user.user_metadata?.name || email.split('@')[0];
+              const newProf = {
+                id: authData.user.id,
+                email: authData.user.email || email,
+                full_name: fullName,
+                avatar_url: authData.user.user_metadata?.avatar_url || '',
+                role: (authData.user.user_metadata?.role || 'user') as any,
+                status: 'active' as const,
+                timezone: 'UTC',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              };
+              await supabase.from('profiles').upsert(newProf, { onConflict: 'id' });
+              resUser = newProf;
+            }
+
+            if (passwordNotice) {
+              sessionStorage.setItem('admin_password_reset_notice', passwordNotice);
+            }
+            setSessionUser(resUser, authData.session?.access_token || '');
+            return;
+          }
+        }
+        throw backendErr;
+      }
+
+      if (resUser?._notice) {
+        sessionStorage.setItem('admin_password_reset_notice', resUser._notice);
+        delete resUser._notice;
+      }
       setUser(resUser);
     } finally {
       setLoading(false);
@@ -83,7 +175,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string, pass: string, name: string, phone?: string) => {
     setLoading(true);
     try {
-      const resUser = await apiClient.register(email, pass, name, phone);
+      let resUser = null;
+      try {
+        resUser = await apiClient.register(email, pass, name, phone);
+      } catch (backendErr: any) {
+        if (backendErr.message && (backendErr.message.includes('Cannot connect') || backendErr.message.includes('Failed to fetch') || backendErr.message.includes('fetch'))) {
+          const { data: authData, error: authErr } = await supabase.auth.signUp({
+            email,
+            password: pass,
+            options: {
+              data: {
+                full_name: name,
+                phone: phone || ''
+              }
+            }
+          });
+
+          if (authErr) throw new Error(authErr.message || 'Registration failed.');
+
+          if (authData.user) {
+            const newProf = {
+              id: authData.user.id,
+              email: authData.user.email || email,
+              full_name: name,
+              avatar_url: `https://api.dicebear.com/7.x/adventurer/svg?seed=${email}`,
+              role: 'user' as const,
+              status: 'active' as const,
+              timezone: 'UTC',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+
+            await supabase.from('profiles').upsert(newProf, { onConflict: 'id' });
+            resUser = newProf;
+
+            if (authData.session) {
+              setSessionUser(resUser, authData.session.access_token);
+            } else {
+              setUser(resUser);
+            }
+            return;
+          }
+        }
+        throw backendErr;
+      }
       setUser(resUser);
     } finally {
       setLoading(false);

@@ -117,37 +117,54 @@ async function request(endpoint: string, method = 'GET', body?: any, isRetry = f
 export const apiClient = {
   // A U T H
   register: async (email: string, password: string, fullName: string, phone?: string) => {
-    const res = await fetch(`${BASE_URL}/auth/register`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, fullName, phone })
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.message || 'Registration failed');
+    try {
+      const res = await fetch(`${BASE_URL}/auth/register`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, fullName, phone })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Registration failed');
+      }
+      const data = await res.json();
+      setAccessToken(data.token);
+      localStorage.setItem('tracker_auth_user', JSON.stringify(data.user));
+      return data.user;
+    } catch (err: any) {
+      if (err.name === 'TypeError' || err.message === 'Failed to fetch' || err.message?.includes('fetch')) {
+        throw new Error(`Cannot connect to backend server at ${BASE_URL}. Verify backend service is running and VITE_API_URL is configured.`);
+      }
+      throw err;
     }
-    const data = await res.json();
-    setAccessToken(data.token);
-    localStorage.setItem('tracker_auth_user', JSON.stringify(data.user));
-    return data.user;
   },
 
   login: async (email: string, password: string) => {
-    const res = await fetch(`${BASE_URL}/auth/login`, {
-      method: 'POST',
-      credentials: 'include',   // lets the server set the httpOnly cookie
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.message || 'Login failed');
+    try {
+      const res = await fetch(`${BASE_URL}/auth/login`, {
+        method: 'POST',
+        credentials: 'include',   // lets the server set the httpOnly cookie
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Login failed');
+      }
+      const data = await res.json();
+      setAccessToken(data.token);
+      localStorage.setItem('tracker_auth_user', JSON.stringify(data.user));
+      if (data.notice) {
+        return { ...data.user, _notice: data.notice };
+      }
+      return data.user;
+    } catch (err: any) {
+      if (err.name === 'TypeError' || err.message === 'Failed to fetch' || err.message?.includes('fetch')) {
+        throw new Error(`Cannot connect to backend server at ${BASE_URL}. Verify backend service is running and VITE_API_URL is configured.`);
+      }
+      throw err;
     }
-    const data = await res.json();
-    setAccessToken(data.token);
-    localStorage.setItem('tracker_auth_user', JSON.stringify(data.user));
-    return data.user;
   },
 
   logout: async () => {

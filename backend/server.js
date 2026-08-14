@@ -32,13 +32,16 @@ app.use(cors({
     const cleanOrigin = origin.replace(/\/$/, '');
     const isAllowed = allowedOrigins.includes(cleanOrigin) || 
                       cleanOrigin.endsWith('.vercel.app') ||
-                      (process.env.FRONTEND_URL && cleanOrigin === process.env.FRONTEND_URL.replace(/\/$/, ''));
+                      (process.env.FRONTEND_URL && cleanOrigin === process.env.FRONTEND_URL.replace(/\/$/, '')) ||
+                      (process.env.CLIENT_URL && cleanOrigin === process.env.CLIENT_URL.replace(/\/$/, ''));
     if (isAllowed) {
       return callback(null, cleanOrigin);
     }
     return callback(null, cleanOrigin);
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json());
 app.use(cookieParser());

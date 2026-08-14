@@ -26,6 +26,15 @@ export const UserDashboard: React.FC = () => {
   const [upcomingTasks, setUpcomingTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
+  const [adminNotice, setAdminNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const notice = sessionStorage.getItem('admin_password_reset_notice');
+    if (notice) {
+      setAdminNotice(notice);
+      sessionStorage.removeItem('admin_password_reset_notice');
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -100,6 +109,16 @@ export const UserDashboard: React.FC = () => {
 
   return (
     <div className="p-6 max-w-7xl mx-auto animate-fade-in space-y-6">
+      {adminNotice && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-sm font-semibold flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <Clock size={18} className="text-amber-600 shrink-0" />
+            <span>{adminNotice}</span>
+          </div>
+          <button onClick={() => setAdminNotice(null)} className="text-amber-700 hover:text-amber-950 text-xs font-bold px-2 py-1 rounded bg-amber-100/60 cursor-pointer">Dismiss</button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

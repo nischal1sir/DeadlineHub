@@ -15,6 +15,15 @@ export const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [recentLogs, setRecentLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [adminNotice, setAdminNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const notice = sessionStorage.getItem('admin_password_reset_notice');
+    if (notice) {
+      setAdminNotice(notice);
+      sessionStorage.removeItem('admin_password_reset_notice');
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -46,6 +55,16 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      {adminNotice && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <Shield size={18} className="text-amber-600 shrink-0" />
+            <span>{adminNotice}</span>
+          </div>
+          <button onClick={() => setAdminNotice(null)} className="text-amber-700 hover:text-amber-950 text-xs font-bold px-2 py-1 rounded bg-amber-100/60 cursor-pointer">Dismiss</button>
+        </div>
+      )}
+
       {/* Header Banner */}
       <div className="p-4 sm:p-6 rounded-2xl bg-white text-slate-900 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 border border-slate-200">
         <div className="min-w-0">
