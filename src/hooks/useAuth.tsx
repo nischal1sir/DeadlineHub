@@ -77,8 +77,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         resUser = await apiClient.login(email, pass);
       } catch (backendErr: any) {
-        // Fallback to direct Supabase Auth client login if backend API server is offline/unreachable
-        if (backendErr.message && (backendErr.message.includes('Cannot connect') || backendErr.message.includes('Failed to fetch') || backendErr.message.includes('fetch'))) {
+        // Fallback to direct Supabase Auth client login if backend server is unreachable or throwing 5xx
+        const isConnErr = !backendErr.status || backendErr.message?.includes('Cannot connect') ||
+                          backendErr.message?.includes('Failed to fetch') || backendErr.message?.includes('fetch') ||
+                          backendErr.message?.includes('NetworkError') || backendErr.status >= 500;
+
+        if (isConnErr) {
           const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
             email: email.trim().toLowerCase(),
             password: pass
@@ -86,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (authErr) {
             if (authErr.message.includes('Invalid login credentials')) {
-              throw new Error('Invalid email or password. If an administrator recently changed your password, please use the new password.');
+              throw new Error('Invalid email or password. Please check your credentials and try again.');
             }
             if (authErr.message.includes('Failed to fetch') || authErr.name === 'TypeError') {
               throw new Error('Unable to connect to authentication server. Please check your network connection.');
@@ -95,12 +99,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
 
           if (authData.user) {
-            // Check for admin password reset notice
-            let passwordNotice = null;
-            if (authData.user.user_metadata?.password_changed_by_admin) {
-              passwordNotice = 'Your password was updated by an administrator.';
-            }
-
             const { data: dbProfile } = await supabase
               .from('profiles')
               .select('*')
@@ -114,18 +112,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
               resUser = dbProfile;
             } else {
-              // Auto-create profile for users who exist in Supabase Auth but not in profiles table
               const cleanEmail = email.trim().toLowerCase();
-              const fullName = authData.user.user_metadata?.full_name || authData.user.user_metadata?.name ||
-                (cleanEmail === 'admin@tracker.com' ? 'System Administrator' : cleanEmail.split('@')[0]);
-              const defaultRole = cleanEmail === 'admin@tracker.com' ? 'super_admin' :
-                (cleanEmail.includes('admin') ? 'admin' : 'user');
+              const fullName = authData.user.user_metadata?.full_name || authData.user.user_metadata?.name || cleanEmail.split('@')[0];
               const newProf = {
                 id: authData.user.id,
                 email: authData.user.email || email,
                 full_name: fullName,
                 avatar_url: authData.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${cleanEmail}`,
-                role: (authData.user.user_metadata?.role || defaultRole) as any,
+                role: 'user' as const,
                 status: 'active' as const,
                 timezone: 'UTC',
                 created_at: new Date().toISOString(),
@@ -135,9 +129,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               resUser = newProf;
             }
 
-            if (passwordNotice) {
-              sessionStorage.setItem('admin_password_reset_notice', passwordNotice);
-            }
             setSessionUser(resUser, authData.session?.access_token || '');
             return;
           }
@@ -145,11 +136,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw backendErr;
       }
 
-      // Handle backend-returned admin password notice
-      if (resUser?._notice) {
-        sessionStorage.setItem('admin_password_reset_notice', resUser._notice);
-        delete resUser._notice;
-      }
       setUser(resUser);
     } finally {
       setLoading(false);
@@ -163,9 +149,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         resUser = await apiClient.register(email, pass, name, phone);
       } catch (backendErr: any) {
-        if (backendErr.message && (backendErr.message.includes('Cannot connect') || backendErr.message.includes('Failed to fetch') || backendErr.message.includes('fetch'))) {
+        const isConnErr = !backendErr.status || backendErr.message?.includes('Cannot connect') ||
+                          backendErr.message?.includes('Failed to fetch') || backendErr.message?.includes('fetch') ||
+                          backendErr.message?.includes('NetworkError') || backendErr.status >= 500;
+
+        if (isConnErr) {
           const { data: authData, error: authErr } = await supabase.auth.signUp({
-            email,
+            email: email.trim().toLowerCase(),
             password: pass,
             options: {
               data: {
@@ -175,7 +165,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           });
 
-          if (authErr) throw new Error(authErr.message || 'Registration failed.');
+          if (authErr) {
+            if (authErr.message.includes('already registered') || authErr.message.includes('already exists')) {
+              throw new Error('An account with this email address already exists. Please sign in instead.');
+            }
+            throw new Error(authErr.message || 'Registration failed.');
+          }
+
+          if (authData.user && (!authData.user.identities || authData.user.identities.length === 0)) {
+            throw new Error('An account with this email address already exists. Please sign in instead.');
+          }
 
           if (authData.user) {
             const newProf = {

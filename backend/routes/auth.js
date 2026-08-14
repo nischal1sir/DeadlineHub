@@ -16,14 +16,14 @@ const isProd = process.env.NODE_ENV === 'production' || !!process.env.FRONTEND_U
 const REFRESH_COOKIE_OPTS = {
   httpOnly: true,                        // JS cannot read — protects against XSS
   secure: isProd,                        // MUST be true for sameSite: 'none'
-  sameSite: isProd ? 'none' : 'lax',     // 'none' required for cross-origin (Vercel -> Render)
+  sameSite: isProd ? 'none' : 'lax',     // 'none' required for cross-origin
   maxAge: 15 * 24 * 60 * 60 * 1000,    // 15 days in milliseconds
   path: '/api/auth'                      // limit cookie scope to auth endpoints
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const makeTokens = (profile) => {
-  const payload = { id: profile.id, email: profile.email, role: profile.role };
+  const payload = { id: profile.id, email: profile.email, role: profile.role || 'user' };
   const accessToken  = jwt.sign(payload, ACCESS_SECRET,  { expiresIn: ACCESS_TOKEN_TTL });
   const refreshToken = jwt.sign(payload, REFRESH_SECRET, { expiresIn: REFRESH_TOKEN_TTL });
   return { accessToken, refreshToken };
@@ -67,17 +67,6 @@ const logActivity = async (userId, action, category, details, req = null) => {
   }
 };
 
-// Check if supabase client has service_role privileges
-const checkIsServiceRole = async () => {
-  try {
-    // listUsers only works with service_role key
-    const { error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1 });
-    return !error;
-  } catch {
-    return false;
-  }
-};
-
 // ── Register ──────────────────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   const { email, password, fullName, phone } = req.body;
@@ -98,7 +87,7 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // Check if profile already exists in DB
+    // 1. Check if profile already exists in public.profiles table
     const { data: existingProf } = await supabase
       .from('profiles')
       .select('id')
@@ -113,66 +102,61 @@ router.post('/register', async (req, res) => {
 
     let user = null;
 
-    // Strategy 1: Try admin.createUser (works with service_role key)
-    try {
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: cleanEmail,
-        password,
-        ...(cleanPhone ? { phone: cleanPhone } : {}),
-        email_confirm: true,
-        user_metadata: {
+    // 2. Try auth.signUp (works with both anon and service_role keys)
+    const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+      options: {
+        data: {
           full_name: fullName.trim(),
           name: fullName.trim(),
           display_name: fullName.trim(),
           ...(cleanPhone ? { phone: cleanPhone } : {}),
           role: 'user'
         }
-      });
+      }
+    });
 
-      if (authError) throw authError;
-      user = authData.user;
-    } catch (adminErr) {
-      // If admin.createUser fails (e.g. using anon key), fall back to signUp
-      const isAdminAuthErr = adminErr.message?.includes('not authorized') ||
-                             adminErr.message?.includes('Invalid API key') ||
-                             adminErr.message?.includes('not allowed') ||
-                             adminErr.status === 403;
+    if (signUpErr) {
+      // If signUp failed because of admin restrictions, try admin.createUser as fallback
+      if (signUpErr.message?.includes('already registered') || signUpErr.message?.includes('already exists')) {
+        return res.status(400).json({
+          message: 'An account with this email address already exists. Please sign in instead.'
+        });
+      }
 
-      if (isAdminAuthErr) {
-        console.warn('[AUTH] admin.createUser failed (likely anon key). Falling back to signUp...');
-        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+      try {
+        const { data: adminData, error: adminErr } = await supabase.auth.admin.createUser({
           email: cleanEmail,
           password,
-          options: {
-            data: {
-              full_name: fullName.trim(),
-              name: fullName.trim(),
-              display_name: fullName.trim(),
-              ...(cleanPhone ? { phone: cleanPhone } : {}),
-              role: 'user'
-            }
+          email_confirm: true,
+          user_metadata: {
+            full_name: fullName.trim(),
+            name: fullName.trim(),
+            ...(cleanPhone ? { phone: cleanPhone } : {}),
+            role: 'user'
           }
         });
-
-        if (signUpErr) throw signUpErr;
-
-        // Check for fake signUp (Supabase returns user with identities=[] when email exists)
-        if (signUpData.user && (!signUpData.user.identities || signUpData.user.identities.length === 0)) {
-          return res.status(400).json({
-            message: 'An account with this email address already exists. Please sign in instead.'
-          });
-        }
-
-        user = signUpData.user;
-      } else {
-        // Re-throw real errors (duplicate email, etc.)
-        throw adminErr;
+        if (adminErr) throw adminErr;
+        user = adminData.user;
+      } catch (e) {
+        throw signUpErr;
       }
+    } else {
+      // Supabase returns user with identities=[] when account already exists
+      if (signUpData.user && (!signUpData.user.identities || signUpData.user.identities.length === 0)) {
+        return res.status(400).json({
+          message: 'An account with this email address already exists. Please sign in instead.'
+        });
+      }
+      user = signUpData.user;
     }
 
-    if (!user) throw new Error('User creation failed.');
+    if (!user) {
+      return res.status(400).json({ message: 'User registration failed. Please try again.' });
+    }
 
-    // Create or update profile in public.profiles
+    // 3. Create profile in public.profiles table (strictly default role: 'user')
     const newProfile = {
       id: user.id,
       email: user.email || cleanEmail,
@@ -231,34 +215,11 @@ router.post('/login', async (req, res) => {
     });
 
     if (authError) {
-      // Check if the user had their password changed by an admin (only if we have service_role)
-      if (authError.message?.includes('Invalid login credentials')) {
-        try {
-          const { data: profileRow } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', cleanEmail)
-            .maybeSingle();
-
-          if (profileRow?.id) {
-            // Try to check admin metadata — this may fail if using anon key, that's OK
-            try {
-              const { data: userRes } = await supabase.auth.admin.getUserById(profileRow.id);
-              if (userRes?.user?.user_metadata?.password_changed_by_admin) {
-                return res.status(401).json({
-                  message: 'Your password was changed by an administrator. Please log in using the new password assigned by your admin.'
-                });
-              }
-            } catch (adminCheckErr) {
-              // admin.getUserById not available (anon key) — skip this check
-            }
-          }
-        } catch (checkErr) {
-          // Profile lookup failed — just proceed with generic error
-        }
-      }
-
       throw authError;
+    }
+
+    if (!authData?.user) {
+      return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
     // Fetch or auto-create profile
@@ -271,17 +232,12 @@ router.post('/login', async (req, res) => {
     if (!profile) {
       console.log(`[AUTH] Profile missing for user ${authData.user.id} (${cleanEmail}). Auto-creating...`);
       const meta = authData.user.user_metadata || {};
-      const isSuperAdmin = cleanEmail === 'admin@tracker.com' || cleanEmail.startsWith('superadmin');
-      const isAdmin = cleanEmail.includes('admin');
-      const defaultRole = isSuperAdmin ? 'super_admin' : (isAdmin ? 'admin' : 'user');
-
       const newProfile = {
         id: authData.user.id,
         email: authData.user.email || cleanEmail,
-        full_name: meta.full_name || meta.display_name || meta.name ||
-                   (cleanEmail === 'admin@tracker.com' ? 'System Administrator' : cleanEmail.split('@')[0]),
+        full_name: meta.full_name || meta.display_name || meta.name || cleanEmail.split('@')[0],
         avatar_url: meta.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${cleanEmail}`,
-        role: meta.role || defaultRole,
+        role: 'user',
         status: 'active',
         timezone: 'UTC',
         created_at: new Date().toISOString(),
@@ -296,41 +252,23 @@ router.post('/login', async (req, res) => {
 
       if (insertErr || !insertedProfile) {
         console.error('[AUTH] Failed to auto-create profile:', insertErr);
-        throw new Error('User profile could not be created. Please contact the administrator.');
+        profile = newProfile; // Fallback to memory object if DB upsert is blocked by RLS
+      } else {
+        profile = insertedProfile;
       }
-      profile = insertedProfile;
     }
 
     if (profile.status === 'inactive') {
       return res.status(403).json({ message: 'This account has been deactivated. Please contact the administrator.' });
     }
 
-    // Check for admin password reset notice (graceful — won't crash if using anon key)
-    let adminPasswordResetNotice = null;
-    if (authData.user?.user_metadata?.password_changed_by_admin) {
-      adminPasswordResetNotice = 'Your password was updated by an administrator.';
-      try {
-        const currentMeta = { ...(authData.user.user_metadata || {}) };
-        delete currentMeta.password_changed_by_admin;
-        await supabase.auth.admin.updateUserById(authData.user.id, {
-          user_metadata: { ...currentMeta, password_changed_by_admin: false }
-        });
-      } catch (clearErr) {
-        // Couldn't clear flag (anon key) — notice will show again next login, that's acceptable
-      }
-    }
-
     const { accessToken, refreshToken } = makeTokens(profile);
 
     await logActivity(profile.id, 'USER_LOGIN', 'auth',
-      `User logged in as ${profile.role.toUpperCase()}`, req);
+      `User logged in as ${(profile.role || 'user').toUpperCase()}`, req);
 
     res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
-    res.json({
-      token: accessToken,
-      user: profile,
-      ...(adminPasswordResetNotice && { notice: adminPasswordResetNotice })
-    });
+    res.json({ token: accessToken, user: profile });
   } catch (err) {
     console.error('[AUTH] Login failure:', err.message);
     let errorMessage = err.message || 'Invalid email or password.';
@@ -344,8 +282,6 @@ router.post('/login', async (req, res) => {
 });
 
 // ── Refresh Token ─────────────────────────────────────────────────────────────
-// Called silently by the frontend when the access token expires (401).
-// Validates the httpOnly refresh cookie and issues a fresh pair.
 router.post('/refresh', async (req, res) => {
   const token = req.cookies?.refreshToken;
 
@@ -356,7 +292,6 @@ router.post('/refresh', async (req, res) => {
   try {
     const decoded = jwt.verify(token, REFRESH_SECRET);
 
-    // Re-fetch profile to catch any role/status changes since token was issued
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('*')
@@ -373,11 +308,9 @@ router.post('/refresh', async (req, res) => {
 
     const { accessToken, refreshToken: newRefreshToken } = makeTokens(profile);
 
-    // Rotate the refresh token — issues a brand-new cookie each time
     res.cookie('refreshToken', newRefreshToken, REFRESH_COOKIE_OPTS);
     res.json({ token: accessToken, user: profile });
   } catch (err) {
-    // Token expired or tampered — force a full login
     res.clearCookie('refreshToken', REFRESH_COOKIE_OPTS);
     res.status(401).json({ message: 'Refresh token expired or invalid. Please log in again.' });
   }
@@ -394,7 +327,6 @@ router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ message: 'Email is required.' });
 
-  // Build the redirect URL — points to the /reset-password page on the frontend
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const redirectTo  = `${frontendUrl.replace(/\/$/, '')}/reset-password`;
 
@@ -421,7 +353,7 @@ router.post('/reset-password', async (req, res) => {
 
   try {
     const decoded = jwt.verify(token, ACCESS_SECRET);
-    const { error } = await supabase.auth.admin.updateUserById(decoded.id, { password });
+    const { error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
 
     await logActivity(decoded.id, 'RESET_PASSWORD', 'auth', 'Password updated successfully');
@@ -432,27 +364,13 @@ router.post('/reset-password', async (req, res) => {
 });
 
 // ── Google OAuth Callback ─────────────────────────────────────────────────────
-// Called by the frontend /auth/callback page after Google OAuth redirect.
-// Verifies the Supabase access token, syncs the user profile, returns our JWT.
 router.post('/google-callback', async (req, res) => {
   const { accessToken, phone, mode } = req.body;
   if (!accessToken) return res.status(400).json({ message: 'Access token is required.' });
 
   try {
-    // Verify the Supabase access token and get the user
     const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
     if (userError || !user) throw new Error('Invalid or expired Google token.');
-
-    // If user attempted Google Sign-Up from Register page, but account already existed
-    if (mode === 'signup' && user.created_at) {
-      const userCreatedAt = new Date(user.created_at).getTime();
-      const isBrandNewUser = (Date.now() - userCreatedAt) < 30000; // 30s window
-      if (!isBrandNewUser) {
-        return res.status(400).json({
-          message: 'An account is already registered under this email. Please sign in instead.'
-        });
-      }
-    }
 
     const fullName = user.user_metadata?.full_name ||
                      user.user_metadata?.name ||
@@ -460,11 +378,6 @@ router.post('/google-callback', async (req, res) => {
     const avatarUrl = user.user_metadata?.avatar_url ||
                       user.user_metadata?.picture ||
                       `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.email}`;
-
-    const cleanEmail = (user.email || '').toLowerCase();
-    const isSuperAdmin = cleanEmail === 'admin@tracker.com' || cleanEmail.startsWith('superadmin');
-    const isAdmin = cleanEmail.includes('admin');
-    const defaultRole = isSuperAdmin ? 'super_admin' : (isAdmin ? 'admin' : 'user');
 
     // Check if profile exists
     const { data: existingProfile } = await supabase
@@ -482,7 +395,6 @@ router.post('/google-callback', async (req, res) => {
     let profile;
 
     if (existingProfile) {
-      // Existing profile — update fields cleanly
       const updates = {
         full_name: existingProfile.full_name || fullName,
         avatar_url: existingProfile.avatar_url || avatarUrl,
@@ -496,17 +408,19 @@ router.post('/google-callback', async (req, res) => {
         .eq('id', user.id)
         .select()
         .single();
-      if (updateErr) throw updateErr;
-      profile = updated;
+      if (updateErr) {
+        profile = { ...existingProfile, ...updates };
+      } else {
+        profile = updated;
+      }
     } else {
-      // New profile — upsert safely in case database trigger already created it
       const newProfile = {
         id: user.id,
         email: user.email,
         full_name: fullName,
         phone: phone || null,
         avatar_url: avatarUrl,
-        role: user.user_metadata?.role || defaultRole,
+        role: 'user',
         status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -517,8 +431,12 @@ router.post('/google-callback', async (req, res) => {
         .upsert(newProfile, { onConflict: 'id' })
         .select()
         .single();
-      if (createErr) throw createErr;
-      profile = created;
+
+      if (createErr) {
+        profile = newProfile;
+      } else {
+        profile = created;
+      }
 
       await logActivity(profile.id, 'GOOGLE_OAUTH_REGISTER', 'auth',
         `New account via Google OAuth: ${fullName} (${user.email})`, req);
@@ -531,7 +449,7 @@ router.post('/google-callback', async (req, res) => {
     const { accessToken: jwtAccess, refreshToken } = makeTokens(profile);
 
     await logActivity(profile.id, 'GOOGLE_OAUTH_LOGIN', 'auth',
-      `Signed in via Google OAuth as ${profile.role.toUpperCase()}`, req);
+      `Signed in via Google OAuth as ${(profile.role || 'user').toUpperCase()}`, req);
 
     res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTS);
     res.json({ token: jwtAccess, user: profile });
