@@ -19,7 +19,7 @@ interface AuthContextType {
   loading: boolean;
   setSessionUser: (user: UserProfile, token: string) => void;
   login: (email: string, pass: string) => Promise<void>;
-  register: (email: string, pass: string, name: string, phone?: string) => Promise<void>;
+  register: (email: string, pass: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (password: string) => Promise<void>;
@@ -142,12 +142,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, pass: string, name: string, phone?: string) => {
+  const register = async (email: string, pass: string, name: string) => {
     setLoading(true);
     try {
       let resUser = null;
       try {
-        resUser = await apiClient.register(email, pass, name, phone);
+        resUser = await apiClient.register(email, pass, name);
       } catch (backendErr: any) {
         const isConnErr = !backendErr.status || backendErr.message?.includes('Cannot connect') ||
                           backendErr.message?.includes('Failed to fetch') || backendErr.message?.includes('fetch') ||
@@ -159,8 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             password: pass,
             options: {
               data: {
-                full_name: name,
-                phone: phone || ''
+                full_name: name
               }
             }
           });

@@ -116,13 +116,13 @@ async function request(endpoint: string, method = 'GET', body?: any, isRetry = f
 // ── API Client ────────────────────────────────────────────────────────────────
 export const apiClient = {
   // A U T H
-  register: async (email: string, password: string, fullName: string, phone?: string) => {
+  register: async (email: string, password: string, fullName: string) => {
     try {
       const res = await fetch(`${BASE_URL}/auth/register`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fullName, phone })
+        body: JSON.stringify({ email, password, fullName })
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));

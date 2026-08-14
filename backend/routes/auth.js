@@ -69,22 +69,13 @@ const logActivity = async (userId, action, category, details, req = null) => {
 
 // ── Register ──────────────────────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
-  const { email, password, fullName, phone } = req.body;
+  const { email, password, fullName } = req.body;
 
   if (!email || !password || !fullName) {
     return res.status(400).json({ message: 'Email, password, and full name are required.' });
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const cleanPhone = phone ? phone.trim() : null;
-
-  // Validate phone if provided
-  if (cleanPhone) {
-    const phoneDigits = cleanPhone.replace(/[\s\-\(\)]/g, '');
-    if (!/^\+?[0-9]{7,15}$/.test(phoneDigits)) {
-      return res.status(400).json({ message: 'Please enter a valid phone number (7 to 15 digits, optional + prefix).' });
-    }
-  }
 
   try {
     // 1. Check if profile already exists in public.profiles table
@@ -111,7 +102,6 @@ router.post('/register', async (req, res) => {
           full_name: fullName.trim(),
           name: fullName.trim(),
           display_name: fullName.trim(),
-          ...(cleanPhone ? { phone: cleanPhone } : {}),
           role: 'user'
         }
       }
@@ -133,7 +123,6 @@ router.post('/register', async (req, res) => {
           user_metadata: {
             full_name: fullName.trim(),
             name: fullName.trim(),
-            ...(cleanPhone ? { phone: cleanPhone } : {}),
             role: 'user'
           }
         });
@@ -161,7 +150,6 @@ router.post('/register', async (req, res) => {
       id: user.id,
       email: user.email || cleanEmail,
       full_name: fullName.trim(),
-      ...(cleanPhone ? { phone: cleanPhone } : {}),
       avatar_url: `https://api.dicebear.com/7.x/adventurer/svg?seed=${cleanEmail}`,
       role: 'user',
       status: 'active',
@@ -365,7 +353,7 @@ router.post('/reset-password', async (req, res) => {
 
 // ── Google OAuth Callback ─────────────────────────────────────────────────────
 router.post('/google-callback', async (req, res) => {
-  const { accessToken, phone, mode } = req.body;
+  const { accessToken, mode } = req.body;
   if (!accessToken) return res.status(400).json({ message: 'Access token is required.' });
 
   try {
@@ -400,7 +388,6 @@ router.post('/google-callback', async (req, res) => {
         avatar_url: existingProfile.avatar_url || avatarUrl,
         updated_at: new Date().toISOString()
       };
-      if (phone) updates.phone = phone;
 
       const { data: updated, error: updateErr } = await supabase
         .from('profiles')
@@ -418,7 +405,6 @@ router.post('/google-callback', async (req, res) => {
         id: user.id,
         email: user.email,
         full_name: fullName,
-        phone: phone || null,
         avatar_url: avatarUrl,
         role: 'user',
         status: 'active',

@@ -18,7 +18,6 @@ export const Register: React.FC = () => {
   const navigate = useNavigate();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -76,7 +75,7 @@ export const Register: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await register(email, password, fullName, phone.trim() || undefined);
+      await register(email, password, fullName);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Registration failed.');
@@ -222,17 +221,6 @@ export const Register: React.FC = () => {
                   >
                     {showConfirmPassword ? <Eye size={17} /> : <EyeOff size={17} />}
                   </button>
-                </div>
-                <div className="relative">
-                  <Input
-                    type="tel"
-                    label="Phone Number (Optional)"
-                    placeholder="+977 9800000000"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    helperText="Include country code (e.g. +977 or +1)"
-                    autoComplete="tel"
-                  />
                 </div>
                 <Button
                   type="submit"
