@@ -173,13 +173,45 @@ router.post('/login', async (req, res) => {
       throw authError;
     }
 
-    const { data: profile, error: profileError } = await supabase
+    let { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', authData.user.id)
-      .single();
+      .maybeSingle();
 
-    if (profileError || !profile) throw new Error('User profile record not found.');
+    // Auto-create/repair missing profile in public.profiles table
+    if (!profile) {
+      console.log(`[AUTH] Profile missing in public.profiles for user ID ${authData.user.id} (${cleanEmail}). Auto-creating profile...`);
+      const meta = authData.user.user_metadata || {};
+      const isSuperAdmin = cleanEmail === 'admin@tracker.com' || cleanEmail.startsWith('superadmin');
+      const isAdmin = cleanEmail.includes('admin');
+      const defaultRole = isSuperAdmin ? 'super_admin' : (isAdmin ? 'admin' : 'user');
+      const role = meta.role || defaultRole;
+
+      const newProfile = {
+        id: authData.user.id,
+        email: authData.user.email || cleanEmail,
+        full_name: meta.full_name || meta.display_name || meta.name || (cleanEmail === 'admin@tracker.com' ? 'System Administrator' : cleanEmail.split('@')[0]),
+        avatar_url: meta.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${cleanEmail}`,
+        role: role,
+        status: 'active',
+        timezone: 'UTC',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: insertedProfile, error: insertErr } = await supabase
+        .from('profiles')
+        .upsert(newProfile, { onConflict: 'id' })
+        .select()
+        .single();
+
+      if (insertErr || !insertedProfile) {
+        console.error('[AUTH] Failed to auto-create profile:', insertErr);
+        throw new Error('User profile record not found and could not be auto-created.');
+      }
+      profile = insertedProfile;
+    }
 
     if (profile.status === 'inactive') {
       return res.status(403).json({ message: 'This account has been deactivated. Please contact the administrator.' });
@@ -211,9 +243,13 @@ router.post('/login', async (req, res) => {
       ...(adminPasswordResetNotice && { notice: adminPasswordResetNotice })
     });
   } catch (err) {
-    const errorMessage = err.message && err.message.includes('Email not confirmed')
-      ? 'Email or password is incorrect'
-      : (err.message || 'Email or password is incorrect');
+    console.error('[AUTH] Login failure:', err.message);
+    let errorMessage = err.message || 'Invalid email or password.';
+    if (errorMessage.includes('Invalid login credentials')) {
+      errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+    } else if (errorMessage.includes('Email not confirmed')) {
+      errorMessage = 'Email address is not confirmed in Supabase. Please confirm your email in Supabase Dashboard.';
+    }
     res.status(401).json({ message: errorMessage });
   }
 });

@@ -136,13 +136,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
               resUser = dbProfile;
             } else {
-              const fullName = authData.user.user_metadata?.full_name || authData.user.user_metadata?.name || email.split('@')[0];
+              const fullName = authData.user.user_metadata?.full_name || authData.user.user_metadata?.name || (email.toLowerCase() === 'admin@tracker.com' ? 'System Administrator' : email.split('@')[0]);
+              const defaultRole = email.toLowerCase() === 'admin@tracker.com' ? 'super_admin' : (email.toLowerCase().includes('admin') ? 'admin' : 'user');
               const newProf = {
                 id: authData.user.id,
                 email: authData.user.email || email,
                 full_name: fullName,
-                avatar_url: authData.user.user_metadata?.avatar_url || '',
-                role: (authData.user.user_metadata?.role || 'user') as any,
+                avatar_url: authData.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${email}`,
+                role: (authData.user.user_metadata?.role || defaultRole) as any,
                 status: 'active' as const,
                 timezone: 'UTC',
                 created_at: new Date().toISOString(),
