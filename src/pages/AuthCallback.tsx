@@ -95,9 +95,7 @@ export const AuthCallback: React.FC = () => {
           token = data.token || accessToken;
         } else {
           const errData = await res.json().catch(() => ({}));
-          if (errData.message && res.status === 400 && errData.message.includes('already registered')) {
-            throw new Error(errData.message);
-          }
+          throw new Error(errData.message || 'An account is already registered under this email. Please sign in instead.');
         }
       } catch (backendErr: any) {
         if (backendErr.message && backendErr.message.includes('already registered')) {
@@ -121,6 +119,17 @@ export const AuthCallback: React.FC = () => {
           .maybeSingle();
 
         if (dbProfile) {
+          // If user clicked "Continue with Google" on Register page, but account already exists
+          if (mode === 'signup' && dbProfile.created_at) {
+            const createdAtMs = new Date(dbProfile.created_at).getTime();
+            const isBrandNew = (Date.now() - createdAtMs) < 30000; // created within last 30s
+            if (!isBrandNew) {
+              await supabase.auth.signOut();
+              localStorage.removeItem('tracker_jwt');
+              localStorage.removeItem('tracker_auth_user');
+              throw new Error('An account is already registered under this email. Please sign in instead.');
+            }
+          }
           userProfile = dbProfile;
         } else {
           const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
