@@ -15,6 +15,7 @@ import profileRoutes from './routes/profile.js';
 import notificationReadsRoutes from './routes/notificationReads.js';
 import adminNotificationRoutes from './routes/adminNotifications.js';
 import uploadRoutes from './routes/upload.js';
+import publicStatsRoutes from './routes/publicStats.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -60,6 +61,7 @@ app.use('/api/admin/notifications', adminNotificationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notification-reads', notificationReadsRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/public', publicStatsRoutes);
 app.use('/api', moduleRoutes);
 app.use('/api', taskRoutes);        // handles: GET /api/projects/:id/tasks, POST /api/projects/:id/tasks
 app.use('/api/tasks', taskRoutes);  // handles: GET /api/tasks/pending, PUT /api/tasks/:id, DELETE /api/tasks/:id
@@ -67,7 +69,7 @@ app.use('/api', subtaskRoutes);           // handles: GET/POST /api/tasks/:id/su
 app.use('/api/subtasks', subtaskRoutes);  // handles: PUT /api/subtasks/:id/toggle, DELETE /api/subtasks/:id
 
 // Error Handling Middleware
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('API Error:', err);
   res.status(err.status || 500).json({
     message: err.message || 'Internal Server Error'

@@ -198,7 +198,8 @@ router.post('/users/:id/reset-password', async (req, res) => {
     try {
       const { data: userRes } = await supabase.auth.admin.getUserById(id);
       if (userRes?.user) existingMeta = userRes.user.user_metadata || {};
-    } catch (e) {}
+    } catch {
+    }
 
     // Update user password directly in Supabase Auth via Admin API
     const { error } = await supabase.auth.admin.updateUserById(id, {
@@ -257,7 +258,7 @@ router.post('/create-admin', async (req, res) => {
     if (authError) throw authError;
 
     // Ensure profile entry has correct role
-    const { data: profile, error: profileErr } = await supabase
+    const { data: profile, error: _profileErr } = await supabase
       .from('profiles')
       .update({ role: role || 'admin', status: 'active' })
       .eq('id', authData.user.id)

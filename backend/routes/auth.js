@@ -128,7 +128,7 @@ router.post('/register', async (req, res) => {
         });
         if (adminErr) throw adminErr;
         user = adminData.user;
-      } catch (e) {
+      } catch {
         throw signUpErr;
       }
     } else {
@@ -158,7 +158,7 @@ router.post('/register', async (req, res) => {
       updated_at: new Date().toISOString()
     };
 
-    const { data: profile, error: profileErr } = await supabase
+    const { data: profile, error: _profileErr } = await supabase
       .from('profiles')
       .upsert(newProfile, { onConflict: 'id' })
       .select()
@@ -298,7 +298,7 @@ router.post('/refresh', async (req, res) => {
 
     res.cookie('refreshToken', newRefreshToken, REFRESH_COOKIE_OPTS);
     res.json({ token: accessToken, user: profile });
-  } catch (err) {
+  } catch {
     res.clearCookie('refreshToken', REFRESH_COOKIE_OPTS);
     res.status(401).json({ message: 'Refresh token expired or invalid. Please log in again.' });
   }
