@@ -38,12 +38,24 @@ export const Register: React.FC = () => {
     setGoogleLoading(true);
     setError(null);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      if (import.meta.env.DEV) {
+        console.log('[Register] Google OAuth - Current origin:', window.location.origin);
+        console.log('[Register] Google OAuth - CALLBACK_URL:', CALLBACK_URL);
+        console.log('[Register] Google OAuth - Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+        console.log('[Register] Google OAuth - Full redirectTo:', `${CALLBACK_URL}?mode=signup`);
+      }
+      const { error, data } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: `${CALLBACK_URL}?mode=signup` },
       });
+      if (import.meta.env.DEV) {
+        console.log('[Register] Google OAuth - signInWithOAuth data:', data);
+      }
       if (error) throw error;
     } catch (err: any) {
+      if (import.meta.env.DEV) {
+        console.error('[Register] Google OAuth error:', err);
+      }
       setError(err.message || 'Google sign-up failed. Please try again.');
       setGoogleLoading(false);
     }

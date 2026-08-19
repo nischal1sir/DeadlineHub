@@ -34,13 +34,25 @@ export const Login: React.FC = () => {
     setGoogleLoading(true);
     setError(null);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      if (import.meta.env.DEV) {
+        console.log('[Login] Google OAuth - Current origin:', window.location.origin);
+        console.log('[Login] Google OAuth - CALLBACK_URL:', CALLBACK_URL);
+        console.log('[Login] Google OAuth - Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+        console.log('[Login] Google OAuth - Full redirectTo:', `${CALLBACK_URL}?mode=login`);
+      }
+      const { error, data } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: `${CALLBACK_URL}?mode=login` },
       });
+      if (import.meta.env.DEV) {
+        console.log('[Login] Google OAuth - signInWithOAuth data:', data);
+      }
       if (error) throw error;
       // Browser will redirect to Google — nothing more to do here
     } catch (err: any) {
+      if (import.meta.env.DEV) {
+        console.error('[Login] Google OAuth error:', err);
+      }
       setError(err.message || 'Google sign-in failed. Please try again.');
       setGoogleLoading(false);
     }

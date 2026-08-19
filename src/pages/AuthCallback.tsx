@@ -23,9 +23,26 @@ export const AuthCallback: React.FC = () => {
       try {
         let session = null;
 
+        // Development-only debugging
+        if (import.meta.env.DEV) {
+          console.log('[AuthCallback] ============ OAUTH CALLBACK START ============');
+          console.log('[AuthCallback] Current origin:', window.location.origin);
+          console.log('[AuthCallback] Full URL:', window.location.href);
+          console.log('[AuthCallback] Search params:', window.location.search);
+          console.log('[AuthCallback] Hash:', window.location.hash);
+          console.log('[AuthCallback] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+          console.log('[AuthCallback] Supabase detectSessionInUrl:', true);
+        }
+
         // 1. Check if PKCE code parameter exists in URL
         const searchParams = new URLSearchParams(window.location.search);
         const code = searchParams.get('code');
+        const mode = searchParams.get('mode');
+        
+        if (import.meta.env.DEV) {
+          console.log('[AuthCallback] Code param:', code ? 'present' : 'missing');
+          console.log('[AuthCallback] Mode param:', mode);
+        }
 
         if (code) {
           const { data, error: codeErr } = await supabase.auth.exchangeCodeForSession(code);
@@ -48,15 +65,26 @@ export const AuthCallback: React.FC = () => {
 
         if (!session) {
           const urlError = searchParams.get('error_description') || searchParams.get('error');
+          if (import.meta.env.DEV) {
+            console.log('[AuthCallback] No session, URL error:', urlError);
+          }
           setErrorMsg(urlError || 'Authentication failed or was cancelled. Please try again.');
           setStep('error');
           return;
         }
 
+        if (import.meta.env.DEV) {
+          console.log('[AuthCallback] Session obtained, user:', session.user?.email);
+          console.log('[AuthCallback] Session access_token length:', session.access_token?.length);
+          console.log('[AuthCallback] ============ OAUTH CALLBACK SUCCESS ============');
+        }
+
         // Sync profile and land directly on user dashboard
         await syncProfileAndRedirect(session.access_token);
       } catch (err: any) {
-        console.error('[AuthCallback] Catch error:', err);
+        if (import.meta.env.DEV) {
+          console.error('[AuthCallback] Catch error:', err);
+        }
         setErrorMsg(err.message || 'Something went wrong. Please try again.');
         setStep('error');
       }
@@ -72,11 +100,18 @@ export const AuthCallback: React.FC = () => {
       const searchParams = new URLSearchParams(window.location.search);
       const mode = searchParams.get('mode') || 'login';
 
+      if (import.meta.env.DEV) {
+        console.log('[AuthCallback] syncProfileAndRedirect - mode:', mode);
+        console.log('[AuthCallback] syncProfileAndRedirect - BASE_URL:', BASE_URL);
+      }
       let userProfile: any = null;
       let token = accessToken;
 
       // 1. Attempt backend synchronization
       try {
+        if (import.meta.env.DEV) {
+          console.log('[AuthCallback] Calling backend:', `${BASE_URL}/auth/google-callback`);
+        }
         const res = await fetch(`${BASE_URL}/auth/google-callback`, {
           method: 'POST',
           credentials: 'include',
@@ -84,12 +119,22 @@ export const AuthCallback: React.FC = () => {
           body: JSON.stringify({ accessToken, mode }),
         });
 
+        if (import.meta.env.DEV) {
+          console.log('[AuthCallback] Backend response status:', res.status);
+        }
+
         if (res.ok) {
           const data = await res.json();
           userProfile = data.user;
           token = data.token || accessToken;
+          if (import.meta.env.DEV) {
+            console.log('[AuthCallback] Backend sync successful:', userProfile?.email);
+          }
         } else {
           const errData = await res.json().catch(() => ({}));
+          if (import.meta.env.DEV) {
+            console.error('[AuthCallback] Backend error:', errData);
+          }
           throw new Error(errData.message || 'This Gmail account is already registered. Please login instead.');
         }
       } catch (backendErr: any) {
@@ -97,6 +142,9 @@ export const AuthCallback: React.FC = () => {
           throw backendErr;
         }
         // Backend offline or unreachable — proceed to client-side Supabase fallback
+        if (import.meta.env.DEV) {
+          console.log('[AuthCallback] Backend unavailable, falling back to Supabase client:', backendErr.message);
+        }
       }
 
       // 2. Direct Supabase Client Fallback (100% Serverless & Independent of local Express server)
@@ -149,6 +197,11 @@ export const AuthCallback: React.FC = () => {
 
       // Update React AuthContext state + localStorage immediately before navigating
       setSessionUser(userProfile, token);
+
+      if (import.meta.env.DEV) {
+        console.log('[AuthCallback] Session user set, redirecting based on role:', userProfile?.role);
+        console.log('[AuthCallback] Current origin (for redirect):', window.location.origin);
+      }
 
       // Redirect based on role
       const role = userProfile?.role;
