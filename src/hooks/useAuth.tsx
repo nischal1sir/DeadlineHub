@@ -89,8 +89,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
 
           if (authErr) {
+            if (import.meta.env.DEV) {
+              console.log('[useAuth] Supabase auth error:', {
+                code: authErr.code,
+                message: authErr.message,
+                name: authErr.name,
+                status: authErr.status
+              });
+            }
             if (authErr.message.includes('Invalid login credentials')) {
               throw new Error('Invalid email or password. Please check your credentials and try again.');
+            }
+            if (authErr.message.includes('Email not confirmed')) {
+              throw new Error('Your email address has not been confirmed. Please check your inbox for the confirmation email.');
             }
             if (authErr.message.includes('Failed to fetch') || authErr.name === 'TypeError') {
               throw new Error('Unable to connect to authentication server. Please check your network connection.');
