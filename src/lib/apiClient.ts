@@ -327,6 +327,11 @@ export const apiClient = {
     return request(`/admin/users/${userId}`, 'DELETE');
   },
 
+  // P U B L I C  S T A T S  (no auth required)
+  getPublicStats: async () => {
+    return request('/public/stats');
+  },
+
   // P L A T F O R M  S T A T I S T I C S
   getPlatformStats: async () => {
     try {
@@ -432,7 +437,7 @@ export const apiClient = {
     let updated;
     try {
       updated = await request('/profile', 'PUT', updates);
-    } catch (err: any) {
+    } catch {
       updated = await request('/admin/profile', 'PUT', updates);
     }
     localStorage.setItem('tracker_auth_user', JSON.stringify(updated));

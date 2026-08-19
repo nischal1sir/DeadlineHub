@@ -3,12 +3,17 @@ import {
   FolderOpenDot, Users, Zap, ShieldCheck, FolderKanban,
   CheckCircle2, ArrowRight, BarChart3, CalendarDays,
   Bell, Lock, FolderTree, Target, Clock, ChevronRight,
-  Star, TrendingUp, Layers
+  TrendingUp, Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
 import { Header } from './PublicNavbar';
 import { Footer } from './PublicFooter';
+import { apiClient } from '../../lib/apiClient';
+import { TestimonialCarousel } from '../ui/TestimonialCarousel';
+import { getTestimonials } from '../ui/testimonial/supabase-testimonials';
+import type { TestimonialData } from '../ui/testimonial/testimonial-grid-demo';
+import { TESTIMONIALS } from '../ui/testimonial/testimonial-grid-demo';
 
 /*  Animated counter hook  */
 const useCountUp = (end: number, duration: number = 2000) => {
@@ -68,26 +73,6 @@ const FeatureCard = ({ icon: Icon, title, description }: { icon: any; title: str
   </div>
 );
 
-const TestimonialCard = ({ quote, author, role }: { quote: string; author: string; role: string }) => (
-  <div className="glass p-6 space-y-4 hover:shadow-lg transition-all duration-300">
-    <div className="flex gap-1">
-      {[...Array(5)].map((_, i) => (
-        <Star key={i} size={14} className="text-amber-400 fill-amber-400" />
-      ))}
-    </div>
-    <p className="text-sm text-slate-600 italic leading-relaxed">"{quote}"</p>
-    <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#748469] to-[#AAC1B1] flex items-center justify-center text-white text-xs font-bold">
-        {author.split(' ').map(n => n[0]).join('')}
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-slate-900">{author}</p>
-        <p className="text-xs text-slate-500">{role}</p>
-      </div>
-    </div>
-  </div>
-);
-
 const HOW_IT_WORKS = [
   {
     step: '01',
@@ -110,56 +95,43 @@ const FEATURES = [
   {
     icon: BarChart3,
     title: 'Visual Analytics',
-    description: 'Beautiful charts and progress bars show exactly where your project stands at a glance.'
+    description: 'Glanceable charts and progress bars show where each project stands.'
   },
   {
     icon: CalendarDays,
     title: 'Smart Calendar',
-    description: 'Integrated calendar view with drag-and-drop rescheduling and deadline conflict detection.'
+    description: 'Drag-and-drop rescheduling with built-in deadline conflict detection.'
   },
   {
     icon: Bell,
     title: 'Smart Reminders',
-    description: 'Get notified before deadlines hit. Never miss a due date with customizable alert schedules.'
+    description: 'Get alerts before deadlines hit, so due dates are never missed.'
   },
   {
     icon: Lock,
     title: 'Role-Based Access',
-    description: 'Control who sees what. Assign admin, editor, or viewer roles to team members.'
+    description: 'Assign admin, editor, or viewer roles to keep control of visibility.'
   },
   {
     icon: Layers,
     title: 'Nested Subtasks',
-    description: 'Break complex work into manageable pieces with unlimited levels of subtasks.'
+    description: 'Break work into manageable pieces with unlimited subtask levels.'
   },
   {
     icon: TrendingUp,
     title: 'Velocity Tracking',
-    description: 'See how fast your team completes tasks and predict future delivery dates accurately.'
-  }
-];
-
-const TESTIMONIALS = [
-  {
-    quote: "DeadlineHUB cut our missed deadlines by 80%. The visual progress tracking keeps everyone accountable without micromanaging.",
-    author: "Mukesh Khatiwada",
-    role: "Product Lead, TechFlow"
-  },
-  {
-    quote: "Finally a project tool that doesn't feel like a chore. We onboarded the whole team in under 30 minutes.",
-    author: "Saujal Karki",
-    role: "Senior Developer"
-  },
-  {
-    quote: "The real-time sync is a game changer. I can see exactly what's blocking our release without asking in Slack.",
-    author: "Elgems Rai",
-    role: "Startup Founder"
+    description: 'Measure completion speed and predict future delivery dates.'
   }
 ];
 
 export const PublicDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const [stats, setStats] = useState<{
+    activeUsers: number; totalProjects: number; activeTasks: number;
+  }>({ activeUsers: 0, totalProjects: 0, activeTasks: 0 });
+
+  const [testimonials, setTestimonials] = useState<TestimonialData[]>(TESTIMONIALS);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('postLogoutToast');
@@ -168,11 +140,39 @@ export const PublicDashboard: React.FC = () => {
         const toast = JSON.parse(stored);
         showToast(toast);
         sessionStorage.removeItem('postLogoutToast');
-      } catch (e) {
+      } catch {
         sessionStorage.removeItem('postLogoutToast');
       }
     }
   }, [showToast]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await apiClient.getPublicStats();
+        setStats({
+          activeUsers: s.activeUsers || 0,
+          totalProjects: s.totalProjects || 0,
+          activeTasks: s.activeTasks || 0
+        });
+      } catch {
+        // Keep zeros if stats can't be fetched
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const fetched = await getTestimonials();
+        if (fetched.length > 0) {
+          setTestimonials(fetched);
+        }
+      } catch {
+        // Keep demo testimonials if Supabase fetch fails
+      }
+    })();
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/50">
@@ -202,17 +202,17 @@ export const PublicDashboard: React.FC = () => {
                 and ship every milestone on schedule.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 w-full sm:w-auto">
                 <button
                   onClick={() => navigate('/register')}
-                  className="w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-[#748469] to-[#AAC1B1] text-white font-semibold shadow-lg shadow-brand/25 hover:shadow-xl hover:shadow-brand/30 hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-[#748469] to-[#AAC1B1] text-white font-semibold shadow-lg shadow-brand/25 hover:shadow-xl hover:shadow-brand/30 hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 text-base sm:text-lg"
                 >
                   Get Started Free
                   <ArrowRight size={18} />
                 </button>
                 <button
                   onClick={() => navigate('/login')}
-                  className="w-full sm:w-auto px-8 py-3 rounded-xl bg-white text-slate-700 font-semibold border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all duration-300"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-white text-slate-700 font-semibold border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all duration-300 text-base sm:text-lg"
                 >
                   Sign In
                 </button>
@@ -227,15 +227,15 @@ export const PublicDashboard: React.FC = () => {
 
           {/*  STATS  */}
           <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatBox icon={Users} value="100+" label="Active Users" />
-            <StatBox icon={FolderKanban} value="500+" label="Projects Tracked" />
+            <StatBox icon={Users} value={String(stats.activeUsers)} label="Active Users" />
+            <StatBox icon={FolderKanban} value={String(stats.totalProjects)} label="Projects Tracked" />
             <StatBox icon={Zap} value="Real-time" label="Live Task Sync" />
-            <StatBox icon={ShieldCheck} value="99.9%" label="Uptime" />
+            <StatBox icon={ShieldCheck} value={String(stats.activeTasks)} label="Active Tasks" />
           </section>
 
           {/*  WHAT IS + WHY  */}
-          <section className="grid lg:grid-cols-2 gap-8 items-center">
-            <div className="space-y-5">
+          <section className="space-y-8">
+            <div className="text-center space-y-2 max-w-3xl mx-auto">
               <div className="inline-flex items-center gap-2 text-brand text-xs font-bold uppercase tracking-widest">
                 <Target size={14} />
                 About DeadlineHUB
@@ -248,57 +248,20 @@ export const PublicDashboard: React.FC = () => {
                 With real-time progress tracking, smart deadline predictions, and team collaboration
                 tools, nothing slips through the cracks unnoticed.
               </p>
-              <ul className="space-y-3 pt-2">
-                {[
-                  'Real-time dashboard with live progress updates',
-                  'AI-powered deadline risk detection',
-                  'Team workload balancing & capacity planning',
-                  'Automated status reports & stakeholder updates'
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
-                    <CheckCircle2 size={18} className="text-brand shrink-0 mt-0.5" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
-
-            {/* Mock Dashboard Preview */}
-            <div className="relative">
-              <div className="absolute -inset-4 bg-gradient-to-r from-[#748469]/20 to-[#AAC1B1]/20 rounded-3xl blur-2xl" />
-              <div className="relative glass rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden">
-                <div className="bg-slate-100/80 px-4 py-3 border-b border-slate-200/60 flex items-center gap-2">
-                  <div className="flex gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-red-400" />
-                    <div className="w-3 h-3 rounded-full bg-amber-400" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                  </div>
-                  <div className="flex-1 text-center">
-                    <div className="inline-block px-3 py-1 rounded-md bg-white text-[10px] text-slate-400 font-mono">deadlinehub-online.app/dashboard</div>
-                  </div>
-                </div>
-                <div className="p-5 space-y-4 bg-white/60">
-                  <div className="flex items-center justify-between">
-                    <div className="h-3 w-32 bg-slate-200 rounded-full" />
-                    <div className="h-8 w-8 bg-brand/10 rounded-lg" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="h-20 rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-100" />
-                    ))}
-                  </div>
-                  <div className="space-y-2">
-                    {[1, 2, 3, 4].map(i => (
-                      <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-white border border-slate-100">
-                        <div className={`w-2 h-2 rounded-full ${i === 1 ? 'bg-emerald-400' : i === 2 ? 'bg-amber-400' : 'bg-slate-300'}`} />
-                        <div className="h-2.5 flex-1 bg-slate-100 rounded-full" />
-                        <div className="h-2.5 w-12 bg-slate-100 rounded-full" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ul className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
+              {[
+                'Real-time dashboard with live progress updates',
+                'AI-powered deadline risk detection',
+                'Team workload balancing & capacity planning',
+                'Automated status reports & stakeholder updates'
+              ].map((item, i) => (
+                <li key={i} className="flex items-start gap-3 text-sm text-slate-600 glass p-4 hover:shadow-lg transition-all duration-300">
+                  <CheckCircle2 size={18} className="text-brand shrink-0 mt-0.5" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
           </section>
 
           {/*  FEATURES GRID  */}
@@ -307,7 +270,7 @@ export const PublicDashboard: React.FC = () => {
               <h2 className="font-heading font-bold text-2xl text-slate-900">Everything You Need</h2>
               <p className="text-sm text-slate-500">Powerful features designed for teams that ship on time, every time.</p>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {FEATURES.map((f, i) => (
                 <FeatureCard key={i} icon={f.icon} title={f.title} description={f.description} />
               ))}
@@ -320,7 +283,7 @@ export const PublicDashboard: React.FC = () => {
               <h2 className="font-heading font-bold text-2xl text-slate-900">How It Works</h2>
               <p className="text-sm text-slate-500">Three simple steps to stay on top of every deadline.</p>
             </div>
-            <div className="grid md:grid-cols-3 gap-6 relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 relative">
               {/* Connector line (desktop only) */}
               <div className="hidden md:block absolute top-12 left-[16.67%] right-[16.67%] h-0.5 bg-gradient-to-r from-brand/20 via-brand/40 to-brand/20" />
 
@@ -349,11 +312,7 @@ export const PublicDashboard: React.FC = () => {
               <h2 className="font-heading font-bold text-2xl text-slate-900">Loved by Teams</h2>
               <p className="text-sm text-slate-500">See why project managers choose DeadlineHUB.</p>
             </div>
-            <div className="grid md:grid-cols-3 gap-4">
-              {TESTIMONIALS.map((t, i) => (
-                <TestimonialCard key={i} quote={t.quote} author={t.author} role={t.role} />
-              ))}
-            </div>
+            <TestimonialCarousel testimonials={testimonials} autoRotate={true} autoRotateInterval={5000} />
           </section>
 
           {/*  PROJECT HIGHLIGHTS / CTA  */}
@@ -377,17 +336,17 @@ export const PublicDashboard: React.FC = () => {
                   Join hundreds of teams who've eliminated deadline anxiety.
                   Set up your first project in under 2 minutes — no credit card required.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <div className="flex flex-col sm:flex-row gap-3 pt-2 w-full sm:w-auto">
                   <button
                     onClick={() => navigate('/register')}
-                    className="px-6 py-3 rounded-xl bg-white text-[#748469] font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto px-6 py-2.5 sm:py-3 rounded-xl bg-white text-[#748469] font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2 text-base sm:text-lg whitespace-nowrap"
                   >
-                    Create Free Account
+                    Create Account
                     <ArrowRight size={18} />
                   </button>
                   <button
                     onClick={() => navigate('/login')}
-                    className="px-6 py-3 rounded-xl bg-white/10 text-white font-semibold border border-white/20 hover:bg-white/20 transition-all duration-300 backdrop-blur-sm"
+                    className="w-full sm:w-auto px-6 py-2.5 sm:py-3 rounded-xl bg-white/10 text-white font-semibold border border-white/20 hover:bg-white/20 transition-all duration-300 backdrop-blur-sm text-base sm:text-lg whitespace-nowrap"
                   >
                     Sign In
                   </button>

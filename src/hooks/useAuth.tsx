@@ -40,7 +40,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (storedUser) {
           try {
             setUser(JSON.parse(storedUser));
-          } catch (e) {}
+          } catch {
+          }
         }
 
         const refreshed = await apiClient.tryRefreshSession();
@@ -54,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (!storedUser) {
           setUser(null);
         }
-      } catch (err) {
+      } catch {
         // Keep existing session if offline or network error
       } finally {
         setLoading(false);
@@ -276,7 +277,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const updated = await apiClient.uploadAvatar(file);
       setUser(updated);
-    } catch (err) {
+    } catch {
       // Fallback to Supabase Storage or Base64 Data URL if backend endpoint fails
       try {
         if (user?.id) {
@@ -293,7 +294,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         }
-      } catch (storageErr) {
+      } catch {
         // Fallthrough to Base64
       }
 
