@@ -27,6 +27,13 @@ export const Profile: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const deleteInputRef = useRef<HTMLInputElement>(null);
+  const [shake, setShake] = useState(false);
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 300);
+  };
 
   useEffect(() => {
     if (user) {
@@ -130,6 +137,7 @@ export const Profile: React.FC = () => {
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== 'DELETE') {
       setErrorMsg('Please type "DELETE" to confirm account deletion');
+      triggerShake();
       return;
     }
 
@@ -454,11 +462,12 @@ export const Profile: React.FC = () => {
               Type "DELETE" to confirm
             </label>
             <input
+              ref={deleteInputRef}
               type="text"
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
               placeholder="DELETE"
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-900 bg-white border border-slate-300 focus:outline-none focus:ring-2 focus:ring-rose/30 focus:border-rose transition font-mono"
+              className={`w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-900 bg-white border border-slate-300 focus:outline-none focus:ring-2 focus:ring-rose/30 focus:border-rose transition font-mono ${shake ? 'animate-shake' : ''}`}
               autoFocus
             />
           </div>
