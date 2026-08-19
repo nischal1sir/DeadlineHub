@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { ImageCropModal } from '../components/ui/ImageCropModal';
-import { User, Lock, Mail, Clock, Shield, Camera, CheckCircle2, AlertCircle, Save, Pencil } from 'lucide-react';
+import { Modal } from '../components/ui/Modal';
+import { User, Lock, Mail, Clock, Shield, Camera, CheckCircle2, AlertCircle, Save, Pencil, LogOut, Trash2, X } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { apiClient } from '../lib/apiClient';
 
 export const Profile: React.FC = () => {
-  const { user, updateProfile, updateAvatar } = useAuth();
+  const { user, updateProfile, updateAvatar, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [saving, setSaving] = useState(false);
@@ -16,6 +18,11 @@ export const Profile: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Delete account modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -107,6 +114,32 @@ export const Profile: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    setErrorMsg(null);
+    try {
+      await logout();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to logout');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') {
+      setErrorMsg('Please type "DELETE" to confirm account deletion');
+      return;
+    }
+
+    setDeleting(true);
+    setErrorMsg(null);
+    try {
+      await apiClient.deleteAccount();
+      await logout();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to delete account');
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-4xl mx-auto animate-fade-in space-y-6">
       <div className="flex items-center justify-between">
@@ -182,13 +215,12 @@ export const Profile: React.FC = () => {
             <Mail size={13} className="text-brand" />
             {user.email}
           </p>
-          <span className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase ${
-            user.role === 'super_admin'
+          <span className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase ${user.role === 'super_admin'
               ? 'bg-amber-50 text-amber-800 border border-amber-200'
               : user.role === 'admin'
-              ? 'bg-brand-light text-brand border border-brand/20'
-              : 'bg-slate-100 text-slate-600 border border-slate-200'
-          }`}>
+                ? 'bg-brand-light text-brand border border-brand/20'
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
+            }`}>
             <User size={13} />
             {user.role.replace('_', ' ')}
           </span>
@@ -300,6 +332,61 @@ export const Profile: React.FC = () => {
         </div>
       </div>
 
+      {/* Account Management / Danger Zone */}
+      <div className="rounded-2xl bg-white border border-rose-200 p-6 shadow-xs">
+        <h2 className="flex items-center gap-2 font-semibold text-rose-800 mb-5 text-sm border-b border-rose-100 pb-3">
+          <Trash2 size={16} className="text-rose-600" /> Account Management
+        </h2>
+
+        <div className="space-y-4">
+          {/* Logout Button */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                  <LogOut size={20} className="text-slate-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900 text-sm">Sign Out</p>
+                  <p className="text-slate-500 text-xs mt-0.5">Sign out of your DeadlineHub account on this device</p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                className="text-xs"
+                icon={<LogOut size={14} />}
+              >
+                Logout
+              </Button>
+            </div>
+          </div>
+
+          {/* Delete Account Button */}
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                  <Trash2 size={20} className="text-rose-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-rose-900 text-sm">Delete Account</p>
+                  <p className="text-rose-600 text-xs mt-0.5">Permanently delete your account and all associated data. This action cannot be undone.</p>
+                </div>
+              </div>
+              <Button
+                variant="danger"
+                onClick={() => setDeleteModalOpen(true)}
+                className="text-xs"
+                icon={<Trash2 size={14} />}
+              >
+                Delete Account
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Crop Modal */}
       {selectedImage && (
         <ImageCropModal
@@ -310,6 +397,68 @@ export const Profile: React.FC = () => {
           isUploading={uploading}
         />
       )}
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => { setDeleteModalOpen(false); setDeleteConfirmText(''); }}
+        title="Delete Account"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => { setDeleteModalOpen(false); setDeleteConfirmText(''); }}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleDeleteAccount}
+              isLoading={deleting}
+              className="text-xs"
+              icon={<Trash2 size={14} />}
+            >
+              Delete Account
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-rose-50 border border-rose-200">
+            <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
+              <AlertCircle size={22} className="text-rose-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-rose-900 text-sm">This action is permanent</p>
+              <p className="text-rose-700 text-xs mt-1">
+                Deleting your account will permanently remove all your data including projects, tasks, and profile information. This cannot be undone.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+              Type "DELETE" to confirm
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-900 bg-white border border-slate-300 focus:outline-none focus:ring-2 focus:ring-rose/30 focus:border-rose transition font-mono"
+              autoFocus
+            />
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+            <p className="text-[11px] text-slate-600 flex items-start gap-2">
+              <X size={12} className="shrink-0 mt-0.5" />
+              All your projects, tasks, and personal data will be permanently deleted.
+            </p>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

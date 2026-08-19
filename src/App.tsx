@@ -147,6 +147,7 @@ export default function App() {
             <Route path="/timeline" element={<TimelinePage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Profile />} />
             <Route path="/pending-tasks" element={<PendingTasksPage />} />
           </Route>
 

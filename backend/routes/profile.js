@@ -88,4 +88,36 @@ router.put('/', async (req, res) => {
   }
 });
 
+// DELETE /api/profile - Delete current user's own account
+router.delete('/', async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'User session invalid.' });
+    }
+
+    const userId = req.user.id;
+
+    // Delete the user from Supabase Auth (this will cascade to profiles table)
+    const { error: authErr } = await supabase.auth.admin.deleteUser(userId);
+    if (authErr) throw authErr;
+
+    // Log account deletion activity
+    try {
+      await supabase.from('activity_logs').insert([{
+        user_id: userId,
+        action: 'DELETE_OWN_ACCOUNT',
+        category: 'user',
+        details: `Deleted own account`,
+        created_at: new Date().toISOString()
+      }]);
+    } catch (logErr) {
+      console.error('Failed to log account deletion activity:', logErr);
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 export default router;

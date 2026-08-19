@@ -516,6 +516,11 @@ export const apiClient = {
     return updated;
   },
 
+  // A C C O U N T  M A N A G E M E N T
+  deleteAccount: async (): Promise<{ success: boolean }> => {
+    return request('/profile', 'DELETE');
+  },
+
   // S U P E R  A D M I N  —  U S E R  A C T I V I T Y & T R A N S F E R
   getUserActivityTimeline: async (userId: string, page = 1, limit = 100, category?: string): Promise<{
     user: any;

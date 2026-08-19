@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import logoImg from '../../assets/logo.png';
 import {
   LayoutDashboard, FolderKanban, Calendar,
-  GanttChartSquare, BarChart2, User
+  GanttChartSquare, BarChart2, Settings
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -21,7 +21,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
     { to: '/calendar', end: false, icon: Calendar, label: 'Calendar' },
     { to: '/timeline', end: false, icon: GanttChartSquare, label: 'Timeline / Gantt' },
     { to: '/analytics', end: false, icon: BarChart2, label: 'Analytics' },
-    { to: '/profile', end: false, icon: User, label: 'Profile' },
+  ];
+
+  const bottomNavItems = [
+    { to: '/settings', end: false, icon: Settings, label: 'Settings' },
   ];
 
   const initials = user?.full_name
@@ -81,6 +84,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
           ))}
         </nav>
 
+        {/* Bottom Nav links (Settings) */}
+        <nav className="px-3 pb-3 space-y-1 border-t border-slate-200">
+          {bottomNavItems.map(({ to, end, icon: Icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              onClick={onCloseMobile}
+              className={({ isActive }) => [
+                'flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150',
+                isActive
+                  ? 'bg-brand text-white shadow-xs font-semibold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-brand-light',
+              ].join(' ')}
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon size={16} className={isActive ? 'text-white' : 'text-slate-500'} />
+                  <span className="truncate">{label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
         {/* Footer user card */}
         {user && (
           <div className="px-3 py-3 border-t border-slate-200 shrink-0 bg-white">
@@ -94,7 +122,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-semibold text-slate-800 truncate">{user.full_name}</span>
-                <span className="text-[10px] text-slate-500 truncate capitalize">{user.email}</span>
               </div>
             </div>
           </div>
