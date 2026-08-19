@@ -395,11 +395,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           {dropdownOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 shadow-lg rounded-xl py-1 animate-pop-in z-50">
               <Link
-                to="/profile"
+                to="/settings"
                 onClick={() => setDropdownOpen(false)}
                 className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-brand-light transition"
               >
-                <User size={14} /> My Profile
+                <User size={14} /> Settings
               </Link>
               <div className="my-1 border-t border-slate-100" />
               <button

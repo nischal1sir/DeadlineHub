@@ -142,21 +142,21 @@ export const Profile: React.FC = () => {
 
   return (
     <div className="p-6 max-w-4xl mx-auto animate-fade-in space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-heading font-bold text-2xl text-slate-900">My Profile</h1>
           <p className="text-sm text-slate-500 mt-1">View your account information and manage your profile</p>
         </div>
 
         {!isEditing ? (
-          <Button variant="outline" onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 text-xs">
+          <Button variant="outline" onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 text-xs whitespace-nowrap">
             <Pencil size={14} /> Edit Name
           </Button>
         ) : (
           <Button variant="secondary" onClick={() => {
             setIsEditing(false);
             setFullName(user.full_name || '');
-          }} className="text-xs">
+          }} className="text-xs whitespace-nowrap">
             Cancel
           </Button>
         )}
@@ -295,7 +295,7 @@ export const Profile: React.FC = () => {
                   type="submit"
                   variant="primary"
                   disabled={saving}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 whitespace-nowrap"
                 >
                   <Save size={16} />
                   {saving ? 'Saving...' : 'Save Name'}
@@ -341,9 +341,9 @@ export const Profile: React.FC = () => {
         <div className="space-y-4">
           {/* Logout Button */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
                   <LogOut size={20} className="text-slate-600" />
                 </div>
                 <div>
@@ -354,7 +354,7 @@ export const Profile: React.FC = () => {
               <Button
                 variant="outline"
                 onClick={handleLogout}
-                className="text-xs"
+                className="text-xs whitespace-nowrap"
                 icon={<LogOut size={14} />}
               >
                 Logout
@@ -364,9 +364,9 @@ export const Profile: React.FC = () => {
 
           {/* Delete Account Button */}
           <div className="p-4 rounded-xl bg-rose-50 border border-rose-200">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
                   <Trash2 size={20} className="text-rose-600" />
                 </div>
                 <div>
@@ -377,7 +377,7 @@ export const Profile: React.FC = () => {
               <Button
                 variant="danger"
                 onClick={() => setDeleteModalOpen(true)}
-                className="text-xs"
+                className="text-xs whitespace-nowrap"
                 icon={<Trash2 size={14} />}
               >
                 Delete Account

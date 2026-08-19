@@ -5,7 +5,6 @@ import {
   LayoutDashboard, FolderKanban, Calendar,
   GanttChartSquare, BarChart2, Settings
 } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -13,8 +12,6 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile }) => {
-  const { user } = useAuth();
-
   const userNavItems = [
     { to: '/dashboard', end: true, icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/projects', end: false, icon: FolderKanban, label: 'Projects' },
@@ -26,10 +23,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
   const bottomNavItems = [
     { to: '/settings', end: false, icon: Settings, label: 'Settings' },
   ];
-
-  const initials = user?.full_name
-    ? user.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
-    : 'U';
 
   return (
     <>
@@ -109,23 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
           ))}
         </nav>
 
-        {/* Footer user card */}
-        {user && (
-          <div className="px-3 py-3 border-t border-slate-200 shrink-0 bg-white">
-            <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200/80 shadow-2xs">
-              <div className="w-7 h-7 rounded-full bg-brand flex items-center justify-center text-xs font-bold text-white shrink-0">
-                {user.avatar_url ? (
-                  <img src={user.avatar_url} alt={user.full_name} className="w-full h-full rounded-full object-cover" />
-                ) : (
-                  initials
-                )}
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs font-semibold text-slate-800 truncate">{user.full_name}</span>
-              </div>
-            </div>
-          </div>
-        )}
+        
       </aside>
     </>
   );
