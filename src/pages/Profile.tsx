@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../context/ToastContext';
 import { ImageCropModal } from '../components/ui/ImageCropModal';
 import { Modal } from '../components/ui/Modal';
 import { User, Lock, Mail, Clock, Shield, Camera, CheckCircle2, AlertCircle, Save, Pencil, LogOut, Trash2, X } from 'lucide-react';
@@ -10,8 +8,6 @@ import { apiClient } from '../lib/apiClient';
 
 export const Profile: React.FC = () => {
   const { user, updateProfile, updateAvatar, logout } = useAuth();
-  const navigate = useNavigate();
-  const { showToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [saving, setSaving] = useState(false);
@@ -145,15 +141,16 @@ export const Profile: React.FC = () => {
     setErrorMsg(null);
     try {
       await apiClient.deleteAccount();
-      await logout();
-      // Navigate to landing page and show success toast
-      navigate('/');
-      showToast({
+      // Store toast in sessionStorage to show after redirect
+      sessionStorage.setItem('postLogoutToast', JSON.stringify({
         type: 'success',
         title: 'Account Deleted Successfully',
         message: 'Your account has been permanently deleted.',
         duration: 5000,
-      });
+      }));
+      await logout();
+      // Force full page navigation to bypass React Router guards
+      window.location.href = '/';
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to delete account');
       setDeleting(false);

@@ -6,6 +6,7 @@ import {
   Star, TrendingUp, Layers
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../context/ToastContext';
 import { Header } from './PublicNavbar';
 import { Footer } from './PublicFooter';
 
@@ -158,6 +159,20 @@ const TESTIMONIALS = [
 
 export const PublicDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem('postLogoutToast');
+    if (stored) {
+      try {
+        const toast = JSON.parse(stored);
+        showToast(toast);
+        sessionStorage.removeItem('postLogoutToast');
+      } catch (e) {
+        sessionStorage.removeItem('postLogoutToast');
+      }
+    }
+  }, [showToast]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/50">
