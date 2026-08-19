@@ -402,4 +402,67 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- ── Testimonials ───────────────────────────────────────────────────────────
+-- Testimonials table
+CREATE TABLE IF NOT EXISTS public.testimonials (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  profession TEXT NOT NULL,
+  rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  quote TEXT NOT NULL,
+  avatar_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.testimonials ENABLE ROW LEVEL SECURITY;
+
+-- Public read access
+CREATE POLICY "Allow public read testimonials" ON public.testimonials
+  FOR SELECT USING (true);
+
+-- Admin insert/update/delete
+CREATE POLICY "Allow authenticated insert testimonials" ON public.testimonials
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow authenticated update testimonials" ON public.testimonials
+  FOR UPDATE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow authenticated delete testimonials" ON public.testimonials
+  FOR DELETE USING (auth.role() = 'authenticated');
+
+-- Trigger for updated_at
+CREATE OR REPLACE FUNCTION public.set_testimonials_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS set_testimonials_updated_at ON public.testimonials;
+CREATE TRIGGER set_testimonials_updated_at
+  BEFORE UPDATE ON public.testimonials
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_testimonials_updated_at();
+
+-- Storage bucket for testimonial avatars
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('testimonial-avatars', 'testimonial-avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage policies
+DROP POLICY IF EXISTS "Allow public read testimonial avatars" ON storage.objects;
+CREATE POLICY "Allow public read testimonial avatars" ON storage.objects
+  FOR SELECT USING (bucket_id = 'testimonial-avatars');
+
+DROP POLICY IF EXISTS "Allow authenticated upload testimonial avatars" ON storage.objects;
+CREATE POLICY "Allow authenticated upload testimonial avatars" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'testimonial-avatars' AND auth.role() = 'authenticated');
+
+DROP POLICY IF EXISTS "Allow authenticated delete testimonial avatars" ON storage.objects;
+CREATE POLICY "Allow authenticated delete testimonial avatars" ON storage.objects
+  FOR DELETE USING (bucket_id = 'testimonial-avatars' AND auth.role() = 'authenticated');
+
 -- SCHEMA COMPLETE ✓
