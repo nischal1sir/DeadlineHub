@@ -23,6 +23,13 @@ export const Profile: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const deleteInputRef = useRef<HTMLInputElement>(null);
+  const [shake, setShake] = useState(false);
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 300);
+  };
 
   useEffect(() => {
     if (user) {
@@ -126,6 +133,7 @@ export const Profile: React.FC = () => {
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== 'DELETE') {
       setErrorMsg('Please type "DELETE" to confirm account deletion');
+      triggerShake();
       return;
     }
 
@@ -133,7 +141,16 @@ export const Profile: React.FC = () => {
     setErrorMsg(null);
     try {
       await apiClient.deleteAccount();
+      // Store toast in sessionStorage to show after redirect
+      sessionStorage.setItem('postLogoutToast', JSON.stringify({
+        type: 'success',
+        title: 'Account Deleted Successfully',
+        message: 'Your account has been permanently deleted.',
+        duration: 5000,
+      }));
       await logout();
+      // Force full page navigation to bypass React Router guards
+      window.location.href = '/';
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to delete account');
       setDeleting(false);
@@ -142,21 +159,21 @@ export const Profile: React.FC = () => {
 
   return (
     <div className="p-6 max-w-4xl mx-auto animate-fade-in space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-heading font-bold text-2xl text-slate-900">My Profile</h1>
           <p className="text-sm text-slate-500 mt-1">View your account information and manage your profile</p>
         </div>
 
         {!isEditing ? (
-          <Button variant="outline" onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 text-xs">
-            <Pencil size={14} /> Edit Name
+          <Button variant="outline" onClick={() => setIsEditing(true)} icon={<Pencil size={14} />} className="text-xs whitespace-nowrap">
+            Edit Name
           </Button>
         ) : (
           <Button variant="secondary" onClick={() => {
             setIsEditing(false);
             setFullName(user.full_name || '');
-          }} className="text-xs">
+          }} className="text-xs whitespace-nowrap">
             Cancel
           </Button>
         )}
@@ -216,10 +233,10 @@ export const Profile: React.FC = () => {
             {user.email}
           </p>
           <span className={`inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase ${user.role === 'super_admin'
-            ? 'bg-amber-50 text-amber-800 border border-amber-200'
-            : user.role === 'admin'
-              ? 'bg-brand-light text-brand border border-brand/20'
-              : 'bg-slate-100 text-slate-600 border border-slate-200'
+              ? 'bg-amber-50 text-amber-800 border border-amber-200'
+              : user.role === 'admin'
+                ? 'bg-brand-light text-brand border border-brand/20'
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
             }`}>
             <User size={13} />
             {user.role.replace('_', ' ')}
@@ -295,7 +312,7 @@ export const Profile: React.FC = () => {
                   type="submit"
                   variant="primary"
                   disabled={saving}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 whitespace-nowrap"
                 >
                   <Save size={16} />
                   {saving ? 'Saving...' : 'Save Name'}
@@ -341,9 +358,9 @@ export const Profile: React.FC = () => {
         <div className="space-y-4">
           {/* Logout Button */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
                   <LogOut size={20} className="text-slate-600" />
                 </div>
                 <div>
@@ -354,7 +371,7 @@ export const Profile: React.FC = () => {
               <Button
                 variant="outline"
                 onClick={handleLogout}
-                className="text-xs"
+                className="text-xs whitespace-nowrap"
                 icon={<LogOut size={14} />}
               >
                 Logout
@@ -364,9 +381,9 @@ export const Profile: React.FC = () => {
 
           {/* Delete Account Button */}
           <div className="p-4 rounded-xl bg-rose-50 border border-rose-200">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
                   <Trash2 size={20} className="text-rose-600" />
                 </div>
                 <div>
@@ -377,7 +394,7 @@ export const Profile: React.FC = () => {
               <Button
                 variant="danger"
                 onClick={() => setDeleteModalOpen(true)}
-                className="text-xs"
+                className="text-xs whitespace-nowrap"
                 icon={<Trash2 size={14} />}
               >
                 Delete Account
@@ -442,11 +459,12 @@ export const Profile: React.FC = () => {
               Type "DELETE" to confirm
             </label>
             <input
+              ref={deleteInputRef}
               type="text"
               value={deleteConfirmText}
               onChange={(e) => setDeleteConfirmText(e.target.value)}
               placeholder="DELETE"
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-900 bg-white border border-slate-300 focus:outline-none focus:ring-2 focus:ring-rose/30 focus:border-rose transition font-mono"
+              className={`w-full rounded-xl px-3.5 py-2.5 text-sm text-slate-900 bg-white border border-slate-300 focus:outline-none focus:ring-2 focus:ring-rose/30 focus:border-rose transition font-mono ${shake ? 'animate-shake' : ''}`}
               autoFocus
             />
           </div>
@@ -454,7 +472,7 @@ export const Profile: React.FC = () => {
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
             <p className="text-[11px] text-slate-600 flex items-start gap-2">
               <X size={12} className="shrink-0 mt-0.5" />
-              All your projects, tasks, and personal data will be permanently deleted{/*  */}.
+              All your projects, tasks, and personal data will be permanently deleted.
             </p>
           </div>
         </div>
