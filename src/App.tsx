@@ -105,7 +105,7 @@ const UserLayout: React.FC = () => {
   );
 };
 
-/* ── OAuth Hash Catch Fallback ── */
+/* ── OAuth Hash Catch Fallback (handles implicit flow hash fragments globally) ── */
 const RootOAuthCatch: React.FC = () => {
   React.useEffect(() => {
     if (window.location.hash.includes('access_token=') || window.location.hash.includes('error=')) {
@@ -119,6 +119,23 @@ const RootOAuthCatch: React.FC = () => {
 
 /* ── Root Application Router */
 export default function App() {
+  /* ── Global hash fragment handler for any route (implicit flow fallback) ── */
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash.includes('access_token=') || window.location.hash.includes('error=')) {
+        const target = `/auth/callback${window.location.search}${window.location.hash}`;
+        window.location.href = target;
+      }
+    };
+
+    // Check on mount
+    handleHashChange();
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   return (
     <AuthProvider>
       <ToastProvider>
