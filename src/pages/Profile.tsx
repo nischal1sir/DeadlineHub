@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
 import { ImageCropModal } from '../components/ui/ImageCropModal';
 import { Modal } from '../components/ui/Modal';
 import { User, Lock, Mail, Clock, Shield, Camera, CheckCircle2, AlertCircle, Save, Pencil, LogOut, Trash2, X } from 'lucide-react';
@@ -8,6 +10,8 @@ import { apiClient } from '../lib/apiClient';
 
 export const Profile: React.FC = () => {
   const { user, updateProfile, updateAvatar, logout } = useAuth();
+  const navigate = useNavigate();
+  const { showToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [saving, setSaving] = useState(false);
@@ -134,6 +138,14 @@ export const Profile: React.FC = () => {
     try {
       await apiClient.deleteAccount();
       await logout();
+      // Navigate to landing page and show success toast
+      navigate('/');
+      showToast({
+        type: 'success',
+        title: 'Account Deleted Successfully',
+        message: 'Your account has been permanently deleted.',
+        duration: 5000,
+      });
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to delete account');
       setDeleting(false);
@@ -149,8 +161,8 @@ export const Profile: React.FC = () => {
         </div>
 
         {!isEditing ? (
-          <Button variant="outline" onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 text-xs whitespace-nowrap">
-            <Pencil size={14} /> Edit Name
+          <Button variant="outline" onClick={() => setIsEditing(true)} icon={<Pencil size={14} />} className="text-xs whitespace-nowrap">
+            Edit Name
           </Button>
         ) : (
           <Button variant="secondary" onClick={() => {

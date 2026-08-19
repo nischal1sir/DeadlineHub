@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { ToastProvider } from './context/ToastContext';
 
 // User Portal Pages
 import { UserDashboard } from './pages/UserDashboard';
@@ -120,8 +121,9 @@ const RootOAuthCatch: React.FC = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
           {/* Public Landing + Auth Routes */}
           <Route path="/" element={<RootOAuthCatch />} />
           <Route path="/login" element={<Login />} />
@@ -176,6 +178,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+    </ToastProvider>
     </AuthProvider>
   );
 }
