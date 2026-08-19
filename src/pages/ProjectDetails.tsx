@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Plus, Edit, LayoutGrid, List, CheckCircle2, ChevronRight, Calendar, Layers, Trash2, CheckSquare } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
@@ -46,7 +46,7 @@ export const ProjectDetails: React.FC = () => {
   const [editStatus, setEditStatus] = useState('active');
   const [projLoading, setProjLoading] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!id) return;
     try {
       setLoading(true);
@@ -64,9 +64,9 @@ export const ProjectDetails: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   // Task Actions
   const openAddTask = () => {

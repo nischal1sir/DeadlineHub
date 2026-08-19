@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -17,84 +17,7 @@ export const AuthCallback: React.FC = () => {
   const [step, setStep] = useState<Step>('loading');
   const [errorMsg, setErrorMsg] = useState('');
 
-  /* ── On mount: let Supabase pick up the OAuth tokens from the URL ── */
-  useEffect(() => {
-    const handleCallback = async () => {
-      try {
-        let session = null;
-
-        // Development-only debugging
-        if (import.meta.env.DEV) {
-          console.log('[AuthCallback] ============ OAUTH CALLBACK START ============');
-          console.log('[AuthCallback] Current origin:', window.location.origin);
-          console.log('[AuthCallback] Full URL:', window.location.href);
-          console.log('[AuthCallback] Search params:', window.location.search);
-          console.log('[AuthCallback] Hash:', window.location.hash);
-          console.log('[AuthCallback] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
-          console.log('[AuthCallback] Supabase detectSessionInUrl:', true);
-        }
-
-        // 1. Check if PKCE code parameter exists in URL
-        const searchParams = new URLSearchParams(window.location.search);
-        const code = searchParams.get('code');
-        const mode = searchParams.get('mode');
-        
-        if (import.meta.env.DEV) {
-          console.log('[AuthCallback] Code param:', code ? 'present' : 'missing');
-          console.log('[AuthCallback] Mode param:', mode);
-        }
-
-        if (code) {
-          const { data, error: codeErr } = await supabase.auth.exchangeCodeForSession(code);
-          if (codeErr) {
-            console.error('[AuthCallback] exchangeCodeForSession error:', codeErr);
-          } else {
-            session = data.session;
-          }
-        }
-
-        // 2. Fallback to getSession for implicit flow or established sessions
-        if (!session) {
-          const { data, error: sessErr } = await supabase.auth.getSession();
-          if (sessErr) {
-            console.error('[AuthCallback] getSession error:', sessErr);
-            throw sessErr;
-          }
-          session = data?.session;
-        }
-
-        if (!session) {
-          const urlError = searchParams.get('error_description') || searchParams.get('error');
-          if (import.meta.env.DEV) {
-            console.log('[AuthCallback] No session, URL error:', urlError);
-          }
-          setErrorMsg(urlError || 'Authentication failed or was cancelled. Please try again.');
-          setStep('error');
-          return;
-        }
-
-        if (import.meta.env.DEV) {
-          console.log('[AuthCallback] Session obtained, user:', session.user?.email);
-          console.log('[AuthCallback] Session access_token length:', session.access_token?.length);
-          console.log('[AuthCallback] ============ OAUTH CALLBACK SUCCESS ============');
-        }
-
-        // Sync profile and land directly on user dashboard
-        await syncProfileAndRedirect(session.access_token);
-      } catch (err: any) {
-        if (import.meta.env.DEV) {
-          console.error('[AuthCallback] Catch error:', err);
-        }
-        setErrorMsg(err.message || 'Something went wrong. Please try again.');
-        setStep('error');
-      }
-    };
-
-    handleCallback();
-  }, []);
-
-  /* ── Sync Google profile to backend (or fallback to Supabase directly) ── */
-  const syncProfileAndRedirect = async (accessToken: string) => {
+  const syncProfileAndRedirect = useCallback(async (accessToken: string) => {
     setStep('syncing');
     try {
       const searchParams = new URLSearchParams(window.location.search);
@@ -127,6 +50,7 @@ export const AuthCallback: React.FC = () => {
           const data = await res.json();
           userProfile = data.user;
           token = data.token || accessToken;
+
           if (import.meta.env.DEV) {
             console.log('[AuthCallback] Backend sync successful:', userProfile?.email);
           }
@@ -214,7 +138,82 @@ export const AuthCallback: React.FC = () => {
       setErrorMsg(err.message || 'Failed to complete sign-in.');
       setStep('error');
     }
-  };
+  }, [navigate, setSessionUser]);
+
+  useEffect(() => {
+    const handleCallback = async () => {
+      try {
+        let session = null;
+
+        // Development-only debugging
+        if (import.meta.env.DEV) {
+          console.log('[AuthCallback] ============ OAUTH CALLBACK START ============');
+          console.log('[AuthCallback] Current origin:', window.location.origin);
+          console.log('[AuthCallback] Full URL:', window.location.href);
+          console.log('[AuthCallback] Search params:', window.location.search);
+          console.log('[AuthCallback] Hash:', window.location.hash);
+          console.log('[AuthCallback] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+          console.log('[AuthCallback] Supabase detectSessionInUrl:', true);
+        }
+
+        // 1. Check if PKCE code parameter exists in URL
+        const searchParams = new URLSearchParams(window.location.search);
+        const code = searchParams.get('code');
+        const mode = searchParams.get('mode');
+        
+        if (import.meta.env.DEV) {
+          console.log('[AuthCallback] Code param:', code ? 'present' : 'missing');
+          console.log('[AuthCallback] Mode param:', mode);
+        }
+
+        if (code) {
+          const { data, error: codeErr } = await supabase.auth.exchangeCodeForSession(code);
+          if (codeErr) {
+            console.error('[AuthCallback] exchangeCodeForSession error:', codeErr);
+          } else {
+            session = data.session;
+          }
+        }
+
+        // 2. Fallback to getSession for implicit flow or established sessions
+        if (!session) {
+          const { data, error: sessErr } = await supabase.auth.getSession();
+          if (sessErr) {
+            console.error('[AuthCallback] getSession error:', sessErr);
+            throw sessErr;
+          }
+          session = data?.session;
+        }
+
+        if (!session) {
+          const urlError = searchParams.get('error_description') || searchParams.get('error');
+          if (import.meta.env.DEV) {
+            console.log('[AuthCallback] No session, URL error:', urlError);
+          }
+          setErrorMsg(urlError || 'Authentication failed or was cancelled. Please try again.');
+          setStep('error');
+          return;
+        }
+
+        if (import.meta.env.DEV) {
+          console.log('[AuthCallback] Session obtained, user:', session.user?.email);
+          console.log('[AuthCallback] Session access_token length:', session.access_token?.length);
+          console.log('[AuthCallback] ============ OAUTH CALLBACK SUCCESS ============');
+        }
+
+        // Sync profile and land directly on user dashboard
+        await syncProfileAndRedirect(session.access_token);
+      } catch (err: any) {
+        if (import.meta.env.DEV) {
+          console.error('[AuthCallback] Catch error:', err);
+        }
+        setErrorMsg(err.message || 'Something went wrong. Please try again.');
+        setStep('error');
+      }
+    };
+
+    handleCallback();
+  }, [syncProfileAndRedirect]);
 
   /* ── Loading State ── */
   if (step === 'loading' || step === 'syncing') {

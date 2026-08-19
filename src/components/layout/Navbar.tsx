@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Bell, BellOff, User, LogOut, Menu, X, CheckCircle2, Check, ShieldAlert, Calendar, Clock, Layers, ListTodo, ChevronRight } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -25,7 +25,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const loadNotificationState = async () => {
+  const loadNotificationState = useCallback(async () => {
     if (!user) return;
     try {
       const { deadlines, readIds: r, clearedIds: c } = await apiClient.getNotifications();
@@ -43,11 +43,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
     } catch (err) {
       console.error('Failed loading notifications in Navbar', err);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     loadNotificationState();
-  }, [user]);
+  }, [user, loadNotificationState]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
