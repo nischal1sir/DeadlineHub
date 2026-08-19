@@ -167,6 +167,11 @@ To enable **"Continue with Google"** authentication for registration and login:
 2. Follow our comprehensive step-by-step guide:  
    👉 **[Google OAuth 2.0 & Supabase Integration Guide](docs/GOOGLE_OAUTH_SETUP_GUIDE.md)**
 
+> ⚠️ **Critical for Local Development**: If you use the same Supabase project for local and production, you **must** add localhost URLs to **Supabase Dashboard → Authentication → URL Configuration**:
+> - **Site URL**: `http://localhost:5173`
+> - **Redirect URLs**: `http://localhost:5173/auth/callback`, `http://127.0.0.1:5173/auth/callback`, `https://your-production-domain.com/auth/callback`
+> Without this, Google OAuth will redirect to production even when running locally.
+
 ---
 
 ### 3. Backend Configuration & Run
@@ -210,11 +215,23 @@ To enable **"Continue with Google"** authentication for registration and login:
    ```
    > **Note:** Most database operations go through the Express backend API. The `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are only needed client-side for the Google OAuth serverless fallback flow — they are the public/anon key and are safe to expose in frontend code.
 
-3. Start the Vite React development server:
+3. **Supabase Dashboard URL Configuration (Required for Google OAuth):**
+   Go to **Supabase Dashboard → Authentication → URL Configuration** and add:
+   - **Site URL**: `http://localhost:5173`
+   - **Redirect URLs**: `http://localhost:5173/auth/callback`, `http://127.0.0.1:5173/auth/callback`, `https://your-production-domain.com/auth/callback`
+
+4. Start the Vite React development server:
    ```bash
    npm run dev
    ```
    *Open your browser and navigate to `http://localhost:5173`.*
+
+5. **Debugging Auth Issues (Development Only):**
+   Open browser DevTools Console (F12) to see detailed OAuth flow logs:
+   - `[Register] Google OAuth - Full redirectTo: http://localhost:5173/auth/callback?mode=signup`
+   - `[AuthCallback] Current origin: http://localhost:5173`
+   - `[AuthCallback] Backend sync successful: your@gmail.com`
+   This helps diagnose redirect issues between local and production environments.
 
 ---
 
@@ -268,6 +285,17 @@ For a complete, step-by-step walkthrough of every environment variable — inclu
 
 ### Database (Supabase)
 Your Supabase project is already live once created — no separate deploy step is needed. Just make sure your schema (`database/schema.sql`) has been run and your `avatars` storage bucket exists (see [Step 2](#2-database-setup-supabase-postgresql) above).
+
+---
+
+## 🐛 Recent Auth Fixes (v1.1)
+
+See **[`AUTH_FIX_SUMMARY.md`](AUTH_FIX_SUMMARY.md)** for details on:
+- Fix for "Email not confirmed" error incorrectly shown on local login
+- Google OAuth localhost → production redirect fix
+- Required Supabase Dashboard URL Configuration for local + production
+- Environment variables for both environments
+- Development-only debugging for OAuth flow
 
 ---
 
