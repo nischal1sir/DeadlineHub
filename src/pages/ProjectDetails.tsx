@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
-import { GlobalLoader } from '../components/ui/GlobalLoader';
+import { ContentLoader } from '../components/ui/ContentLoader';
 
 export const ProjectDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -165,7 +165,7 @@ export const ProjectDetails: React.FC = () => {
     { key: 'done', label: 'Done', dot: 'bg-brand' },
   ];
 
-  if (loading && !project) return <GlobalLoader text="Loading project..." />;
+  if (loading && !project) return <ContentLoader text="Loading project..." />;
 
   return (
     <div className="p-6 max-w-7xl mx-auto animate-fade-in space-y-6">

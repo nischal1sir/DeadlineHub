@@ -7,7 +7,7 @@ import { apiClient } from '../../lib/apiClient';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { GlobalLoader } from '../../components/ui/GlobalLoader';
+import { ContentLoader } from '../../components/ui/ContentLoader';
 
 interface ManagedUser {
   id: string;
@@ -191,7 +191,7 @@ export const UserManagementPage: React.FC = () => {
     return matchesSearch && matchesStatus && matchesRole;
   });
 
-  if (loading) return <GlobalLoader text="Loading user registry..." />;
+  if (loading) return <ContentLoader text="Loading user registry..." />;
 
   return (
     <div className="space-y-6 animate-fade-in">

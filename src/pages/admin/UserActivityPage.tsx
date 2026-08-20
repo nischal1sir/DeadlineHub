@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient, type AdminNotification } from '../../lib/apiClient';
 import { Button } from '../../components/ui/Button';
-import { GlobalLoader } from '../../components/ui/GlobalLoader';
+import { ContentLoader } from '../../components/ui/ContentLoader';
 import {
   ArrowLeft, User, Mail, Shield, Clock, FolderKanban, CheckSquare,
   Activity, KeyRound, Server, Filter, ChevronLeft, ChevronRight, AlertCircle, RefreshCw
@@ -85,7 +85,7 @@ export const UserActivityPage: React.FC = () => {
   const totalPages = Math.ceil(totalLogs / limit) || 1;
 
   if (loading && !userData) {
-    return <GlobalLoader text="Loading user activity timeline..." />;
+    return <ContentLoader text="Loading user activity timeline..." />;
   }
 
   if (errorMsg && !userData) {

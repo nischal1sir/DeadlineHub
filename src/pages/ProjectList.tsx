@@ -5,7 +5,7 @@ import { apiClient } from '../lib/apiClient';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
-import { GlobalLoader } from '../components/ui/GlobalLoader';
+import { ContentLoader } from '../components/ui/ContentLoader';
 
 interface ProjectWithStats {
   id: string; name: string; description: string;
@@ -59,7 +59,7 @@ export const ProjectList: React.FC = () => {
 
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
-  if (loading && projects.length === 0) return <GlobalLoader text="Loading projects..." />;
+  if (loading && projects.length === 0) return <ContentLoader text="Loading projects..." />;
 
   return (
     <div className="p-6 max-w-7xl mx-auto animate-fade-in">

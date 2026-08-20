@@ -7,7 +7,7 @@ import {
 import logoImg from '../../assets/logo.png';
 import { apiClient } from '../../lib/apiClient';
 import { useAuth } from '../../hooks/useAuth';
-import { GlobalLoader } from '../../components/ui/GlobalLoader';
+import { ContentLoader } from '../../components/ui/ContentLoader';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -43,7 +43,7 @@ export const AdminDashboard: React.FC = () => {
   }, []);
 
   if (loading || !stats) {
-    return <GlobalLoader text="Loading platform administration..." size="lg" />;
+    return <ContentLoader text="Loading platform administration..." size="lg" />;
   }
 
   return (

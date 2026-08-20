@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../lib/apiClient';
 import { Badge } from '../components/ui/Badge';
-import { GlobalLoader } from '../components/ui/GlobalLoader';
+import { ContentLoader } from '../components/ui/ContentLoader';
 import { toLocalDateString, getDaysRemaining } from '../lib/dateUtils';
 
 type SortKey = 'due_date' | 'priority' | 'project';
@@ -237,7 +237,7 @@ export const PendingTasksPage: React.FC = () => {
       </div>
 
       {/* List */}
-      {loading && <GlobalLoader text="Loading pending tasks..." />}
+      {loading && <ContentLoader text="Loading pending tasks..." />}
 
       {!loading && filtered.length === 0 ? (
         <div className="glass p-12 flex flex-col items-center justify-center text-center">

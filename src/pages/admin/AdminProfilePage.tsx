@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { ImageCropModal } from '../../components/ui/ImageCropModal';
 import { User, Mail, Clock, Shield, Camera, Save, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { GlobalLoader } from '../../components/ui/GlobalLoader';
+import { ContentLoader } from '../../components/ui/ContentLoader';
 
 export const AdminProfilePage: React.FC = () => {
   const { user, updateProfile, updateAvatar } = useAuth();
@@ -28,7 +28,7 @@ export const AdminProfilePage: React.FC = () => {
   }, [user]);
 
   if (!user) {
-    return <GlobalLoader text="Loading admin profile..." />;
+    return <ContentLoader text="Loading admin profile..." />;
   }
 
   const initials = user.full_name

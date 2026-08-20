@@ -4,7 +4,7 @@ import { CheckSquare, Calendar, Plus, Activity, Clock, TrendingUp, FolderOpenDot
 import { apiClient } from '../lib/apiClient';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { GlobalLoader } from '../components/ui/GlobalLoader';
+import { ContentLoader } from '../components/ui/ContentLoader';
 import { toLocalDateString, getDaysRemaining } from '../lib/dateUtils';
 
 const MetricCard = ({ icon: Icon, value, label, iconBg }: { icon: any; value: string | number; label: string; iconBg: string }) => (
@@ -99,7 +99,7 @@ export const UserDashboard: React.FC = () => {
   const fmt = (iso?: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
   const isOverdue = (d?: string) => !!d && getDaysRemaining(d) < 0;
 
-  if (loading) return <GlobalLoader text="Loading dashboard..." />;
+  if (loading) return <ContentLoader text="Loading dashboard..." />;
 
   return (
     <div className="p-6 max-w-7xl mx-auto animate-fade-in space-y-6">

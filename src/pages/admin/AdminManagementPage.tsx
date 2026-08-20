@@ -4,7 +4,7 @@ import { apiClient } from '../../lib/apiClient';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { GlobalLoader } from '../../components/ui/GlobalLoader';
+import { ContentLoader } from '../../components/ui/ContentLoader';
 
 export const AdminManagementPage: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -155,7 +155,7 @@ export const AdminManagementPage: React.FC = () => {
         </div>
       )}
 
-      {loading && <GlobalLoader text="Loading admin registry..." />}
+      {loading && <ContentLoader text="Loading admin registry..." />}
 
       {!loading && admins.length > 0 && (
         <div className="grid md:grid-cols-2 gap-4">

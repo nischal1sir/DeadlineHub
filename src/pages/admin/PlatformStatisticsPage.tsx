@@ -4,7 +4,7 @@ import {
   Clock, AlertTriangle, TrendingUp, Sparkles, PieChart, Activity
 } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
-import { GlobalLoader } from '../../components/ui/GlobalLoader';
+import { ContentLoader } from '../../components/ui/ContentLoader';
 
 // ─── Color palette constants (from index.css theme) ───────────────────────────
 // brand:           #748469  — Primary Dark Sage Fern
@@ -145,7 +145,7 @@ export const PlatformStatisticsPage: React.FC = () => {
   }, []);
 
   if (loading || !stats) {
-    return <GlobalLoader text="Loading platform statistics..." size="lg" />;
+    return <ContentLoader text="Loading platform statistics..." size="lg" />;
   }
 
   const projectCompletionRate = stats.totalProjects > 0 ? Math.round((stats.completedProjects / stats.totalProjects) * 100) : 0;
