@@ -6,6 +6,7 @@ import {
 import { apiClient } from '../lib/apiClient';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { GlobalLoader } from '../components/ui/GlobalLoader';
 
 /* ─── Types  */
 interface ManagedUser {
@@ -261,6 +262,8 @@ export const Admin: React.FC = () => {
   const totalProjects = allProjects.length;
   const totalTasks = allTasks.length;
 
+  if (loading) return <GlobalLoader text="Loading platform users..." />;
+
   return (
     <div className="p-6 max-w-7xl mx-auto animate-fade-in space-y-6">
 
@@ -355,15 +358,7 @@ export const Admin: React.FC = () => {
 
       {/* ── Users Table ──────────────────────────────────── */}
       <div className="glass overflow-hidden">
-        {loading ? (
-          <div className="p-16 text-center">
-            <svg className="animate-spin h-8 w-8 text-brand mx-auto" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            <p className="text-sm text-slate-500 mt-3">Loading platform users…</p>
-          </div>
-        ) : filteredUsers.length === 0 ? (
+        {filteredUsers.length === 0 ? (
           <div className="p-16 text-center">
             <Users size={36} className="text-slate-300 mx-auto mb-3" />
             <p className="text-sm font-medium text-slate-500">No users match your filter.</p>

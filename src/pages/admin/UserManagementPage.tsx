@@ -7,6 +7,7 @@ import { apiClient } from '../../lib/apiClient';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
+import { GlobalLoader } from '../../components/ui/GlobalLoader';
 
 interface ManagedUser {
   id: string;
@@ -190,6 +191,8 @@ export const UserManagementPage: React.FC = () => {
     return matchesSearch && matchesStatus && matchesRole;
   });
 
+  if (loading) return <GlobalLoader text="Loading user registry..." />;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -263,9 +266,7 @@ export const UserManagementPage: React.FC = () => {
       </div>
 
       <div className="rounded-2xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-slate-500 text-xs">Loading user registry...</div>
-        ) : filteredUsers.length === 0 ? (
+        {filteredUsers.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-xs">No user accounts match your filters.</div>
         ) : (
           <div className="overflow-x-auto">

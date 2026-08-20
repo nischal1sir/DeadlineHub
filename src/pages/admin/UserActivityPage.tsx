@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient, type AdminNotification } from '../../lib/apiClient';
 import { Button } from '../../components/ui/Button';
+import { GlobalLoader } from '../../components/ui/GlobalLoader';
 import {
   ArrowLeft, User, Mail, Shield, Clock, FolderKanban, CheckSquare,
   Activity, KeyRound, Server, Filter, ChevronLeft, ChevronRight, AlertCircle, RefreshCw
@@ -84,17 +85,7 @@ export const UserActivityPage: React.FC = () => {
   const totalPages = Math.ceil(totalLogs / limit) || 1;
 
   if (loading && !userData) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3 text-slate-400">
-          <svg className="animate-spin h-10 w-10 text-brand" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-          </svg>
-          <span className="text-sm text-slate-500">Loading user activity timeline...</span>
-        </div>
-      </div>
-    );
+    return <GlobalLoader text="Loading user activity timeline..." />;
   }
 
   if (errorMsg && !userData) {

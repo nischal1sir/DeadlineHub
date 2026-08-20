@@ -4,6 +4,7 @@ import {
   Clock, AlertTriangle, TrendingUp, Sparkles, PieChart, Activity
 } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
+import { GlobalLoader } from '../../components/ui/GlobalLoader';
 
 // ─── Color palette constants (from index.css theme) ───────────────────────────
 // brand:           #748469  — Primary Dark Sage Fern
@@ -144,17 +145,7 @@ export const PlatformStatisticsPage: React.FC = () => {
   }, []);
 
   if (loading || !stats) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3 text-slate-400">
-          <svg className="animate-spin h-9 w-9 text-brand" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-          </svg>
-          <span className="text-xs text-slate-500">Loading platform statistics...</span>
-        </div>
-      </div>
-    );
+    return <GlobalLoader text="Loading platform statistics..." size="lg" />;
   }
 
   const projectCompletionRate = stats.totalProjects > 0 ? Math.round((stats.completedProjects / stats.totalProjects) * 100) : 0;

@@ -4,6 +4,7 @@ import { apiClient } from '../../lib/apiClient';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
+import { GlobalLoader } from '../../components/ui/GlobalLoader';
 
 export const AdminManagementPage: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -154,9 +155,9 @@ export const AdminManagementPage: React.FC = () => {
         </div>
       )}
 
-      {loading ? (
-        <div className="p-12 text-center text-slate-500 text-xs">Loading admin registry...</div>
-      ) : (
+      {loading && <GlobalLoader text="Loading admin registry..." />}
+
+      {!loading && admins.length > 0 && (
         <div className="grid md:grid-cols-2 gap-4">
           {admins.map(admin => {
             const isSelfSuperAdmin = admin.id === currentUser?.id && currentUser?.role === 'super_admin';

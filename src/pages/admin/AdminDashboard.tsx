@@ -7,6 +7,7 @@ import {
 import logoImg from '../../assets/logo.png';
 import { apiClient } from '../../lib/apiClient';
 import { useAuth } from '../../hooks/useAuth';
+import { GlobalLoader } from '../../components/ui/GlobalLoader';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -42,15 +43,7 @@ export const AdminDashboard: React.FC = () => {
   }, []);
 
   if (loading || !stats) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-        <svg className="animate-spin h-8 w-8 text-emerald-500 mb-3" viewBox="0 0 24 24" fill="none">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-        </svg>
-        <p className="text-xs">Loading platform administration overview...</p>
-      </div>
-    );
+    return <GlobalLoader text="Loading platform administration..." size="lg" />;
   }
 
   return (

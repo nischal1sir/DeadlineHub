@@ -5,6 +5,7 @@ import type { ActivityLog } from '../../lib/apiClient';
 import { useAuth } from '../../hooks/useAuth';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
+import { GlobalLoader } from '../../components/ui/GlobalLoader';
 
 export const ActivityLogsPage: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -169,9 +170,9 @@ export const ActivityLogsPage: React.FC = () => {
       </div>
 
       <div className="rounded-2xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-slate-500 text-xs">Loading audit logs...</div>
-        ) : filtered.length === 0 ? (
+        {loading && <GlobalLoader text="Loading audit logs..." />}
+
+        {!loading && filtered.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-xs">No activity logs recorded matching your search.</div>
         ) : (
           <div className="overflow-x-auto">

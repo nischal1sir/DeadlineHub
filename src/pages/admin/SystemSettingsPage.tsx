@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Settings as SettingsIcon, Save, Lock } from 'lucide-react';
 import { apiClient } from '../../lib/apiClient';
 import { useAuth } from '../../hooks/useAuth';
+import { GlobalLoader } from '../../components/ui/GlobalLoader';
 
 export const SystemSettingsPage: React.FC = () => {
   const { user: currentUser } = useAuth();
@@ -48,7 +49,7 @@ export const SystemSettingsPage: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="p-12 text-center text-slate-400 text-xs">Loading system configuration...</div>;
+  if (loading) return <GlobalLoader text="Loading system configuration..." />;
 
   return (
     <div className="space-y-6 animate-fade-in max-w-4xl">
