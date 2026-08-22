@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ToastProvider } from './context/ToastContext';
+import { usePageTitle } from './hooks/usePageTitle';
 
 // User Portal Pages
 import { UserDashboard } from './pages/UserDashboard';
@@ -111,6 +112,12 @@ const RootOAuthCatch: React.FC = () => {
   return <PublicDashboard />;
 };
 
+/* ── Page Title Component (must be inside BrowserRouter) ── */
+const PageTitle: React.FC = () => {
+  usePageTitle();
+  return null;
+};
+
 /* ── Root Application Router */
 export default function App() {
   /* ── Global hash fragment handler for any route (implicit flow fallback) ── */
@@ -134,6 +141,7 @@ export default function App() {
     <AuthProvider>
       <ToastProvider>
         <BrowserRouter>
+          <PageTitle />
           <Routes>
           {/* Public Landing + Auth Routes */}
           <Route path="/" element={<RootOAuthCatch />} />
