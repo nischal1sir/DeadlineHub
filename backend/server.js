@@ -49,7 +49,13 @@ app.use(cookieParser());
 
 // Health Check Route
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()) + 's',
+    environment: process.env.NODE_ENV || 'development',
+    service: 'DeadlineHub API'
+  });
 });
 
 // API Routes
@@ -78,4 +84,29 @@ app.use((err, req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`DeadlineHub API Server running on port ${PORT}`);
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 🔥 RENDER KEEP-ALIVE: Self-ping every 6 minutes so the free-tier instance
+  //    never goes inactive. Render spins down after ~15 min of no traffic.
+  //    Set RENDER_EXTERNAL_URL in your Render environment variables section.
+  // ──────────────────────────────────────────────────────────────────────────
+  const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
+  if (RENDER_URL) {
+    const PING_INTERVAL_MS = 8 * 60 * 60 * 1000; // every 8 hours = 3 hits per day
+    const healthUrl = `${RENDER_URL.replace(/\/$/, '')}/api/health`;
+
+    console.log(`⚡ Keep-alive enabled → will ping ${healthUrl} 3 times per day (every 8 hours)`);
+
+    setInterval(async () => {
+      try {
+        const res = await fetch(healthUrl);
+        const data = await res.json();
+        console.log(`✅ Keep-alive ping OK [${new Date().toISOString()}] uptime=${data.uptime}`);
+      } catch (err) {
+        console.error(`❌ Keep-alive ping FAILED [${new Date().toISOString()}]:`, err.message);
+      }
+    }, PING_INTERVAL_MS);
+  } else {
+    console.log('ℹ️  Keep-alive skipped: RENDER_EXTERNAL_URL not set (local dev mode)');
+  }
 });
