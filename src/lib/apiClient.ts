@@ -562,4 +562,17 @@ export const apiClient = {
   purgeActivityLogs: async (days = 30): Promise<{ success: boolean; message: string }> => {
     return request(`/admin/activity-logs/purge?days=${days}`, 'DELETE');
   },
+
+  // H E A L T H  C H E C K  (public, no auth required)
+  checkHealth: async (): Promise<{
+    status: string;
+    timestamp: string;
+    uptime: string;
+    environment: string;
+    service: string;
+  }> => {
+    const res = await fetch(`${BASE_URL}/health`);
+    if (!res.ok) throw new Error('Health check failed');
+    return res.json();
+  },
 };

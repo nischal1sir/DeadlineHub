@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, LogOut, Bell, User as UserIcon, X, CheckCheck, RefreshCw, Filter, Shield, KeyRound, Server, } from 'lucide-react';
+import { Menu, LogOut, Bell, User as UserIcon, X, CheckCheck, RefreshCw, Filter, Shield, KeyRound, Server, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { apiClient, type AdminNotification } from '../../lib/apiClient';
+import { useBackendHealth } from '../../hooks/useBackendHealth';
 
 interface AdminNavbarProps {
   onToggleSidebar: () => void;
 }
 
 export const AdminNavbar: React.FC<AdminNavbarProps> = ({ onToggleSidebar }) => {
+  const health = useBackendHealth();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -154,10 +156,35 @@ export const AdminNavbar: React.FC<AdminNavbarProps> = ({ onToggleSidebar }) => 
         </button>
 
         <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-brand-light border border-brand/20 text-brand text-xs font-semibold">
-            <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
-            System Status: Operational
-          </div>
+          {/* Live Backend Health Pill */}
+          <button
+            onClick={() => health.check()}
+            title={health.status === 'online'
+              ? `API online · uptime ${health.uptime} · ${health.environment ?? ''} · click to refresh`
+              : health.status === 'checking'
+              ? 'Checking backend health…'
+              : 'Backend offline · click to retry'}
+            className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold transition cursor-pointer ${
+              health.status === 'online'
+                ? 'bg-emerald-50 border-emerald-200/70 text-emerald-700 hover:bg-emerald-100'
+                : health.status === 'checking'
+                ? 'bg-slate-100 border-slate-200 text-slate-500'
+                : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+            }`}
+          >
+            {health.status === 'checking' ? (
+              <Loader2 size={11} className="animate-spin" />
+            ) : health.isOnline ? (
+              <Wifi size={11} />
+            ) : (
+              <WifiOff size={11} />
+            )}
+            {health.status === 'checking'
+              ? 'Checking…'
+              : health.isOnline
+              ? `API Online${health.uptime ? ` · ${health.uptime}` : ''}`
+              : 'API Offline'}
+          </button>
         </div>
       </div>
 

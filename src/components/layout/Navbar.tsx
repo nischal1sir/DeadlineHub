@@ -6,6 +6,7 @@ import { apiClient } from '../../lib/apiClient';
 import { Badge } from '../ui/Badge';
 import type { DeadlineNotification } from '../../pages/ProjectDeadlineNotificationPanel';
 import { getDaysRemaining } from '../../lib/dateUtils';
+import { useBackendHealth } from '../../hooks/useBackendHealth';
 
 interface NavbarProps {
   onToggleSidebar: () => void;
@@ -14,6 +15,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
+  const health = useBackendHealth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -172,6 +174,28 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
       {/* Right */}
       <div className="flex items-center gap-2">
+        {/* API Status dot */}
+        <button
+          onClick={() => health.check()}
+          title={health.status === 'online'
+            ? `Backend online · uptime ${health.uptime}`
+            : health.status === 'checking'
+            ? 'Checking backend…'
+            : 'Backend offline · click to retry'}
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-medium transition cursor-pointer
+            " style={{
+              background: health.status === 'online' ? '#f0fdf4' : health.status === 'checking' ? '#f8fafc' : '#fff1f2',
+              borderColor: health.status === 'online' ? '#bbf7d0' : health.status === 'checking' ? '#e2e8f0' : '#fecdd3',
+              color: health.status === 'online' ? '#15803d' : health.status === 'checking' ? '#64748b' : '#e11d48',
+            }}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              health.status === 'online' ? 'bg-emerald-500' : health.status === 'checking' ? 'bg-slate-400 animate-pulse' : 'bg-rose-500 animate-pulse'
+            }`}
+          />
+          {health.status === 'online' ? 'API' : health.status === 'checking' ? 'API…' : 'Offline'}
+        </button>
         {/* Bell Notification Toggle Button */}
         <div className="relative" ref={notifRef}>
           <button
